@@ -1,0 +1,18 @@
+From: Noor el Amrani <noor.elamrani@example.org>
+To: info@valtimo.local
+Cc: zaakpost@valtimo.local
+Subject: Aanvraag via het info-adres
+Message-ID: <fixture-07-other-recipient@example.org>
+Date: Mon, 7 Sep 2026 15:38:27 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+This mail lands in the zaakpost mailbox - it is on the Cc line - but it is addressed To
+info@valtimo.local.
+
+The receive-mail link on the message start event filters on
+recipientContains = zaakpost@valtimo.local, and that filter looks at To only, not at Cc. So
+this mail should be fetched, claimed in imap_mail_processed, marked read, and then create no
+case at all. It is the fixture for "matched no process link": expect a `skipped` count of 1
+in the poll log line rather than an error.

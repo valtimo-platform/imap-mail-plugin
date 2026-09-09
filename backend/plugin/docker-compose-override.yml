@@ -3,4 +3,5 @@ services:
     ports:
       - "54342:5432"
     environment:
-      - POSTGRES_DB=sample-plugin-test
+      # Must match spring.datasource.url in src/test/resources/config/application.yml.
+      - POSTGRES_DB=imap-mail-test

@@ -1,0 +1,25 @@
+[
+    {
+        "activityId": "mail-received",
+        "activityType": "bpmn:MessageStartEvent:start",
+        "processLinkType": "plugin",
+        "pluginDefinitionKey": "imap-mail",
+        "pluginActionDefinitionKey": "receive-mail",
+        "pluginConfigurationId": "8e1c4d02-6f3b-4d51-9a7e-2b5c0f1d8a34",
+        "actionProperties": {
+            "subjectContains": "Aanvraag",
+            "recipientContains": "zaakpost@valtimo.local"
+        }
+    },
+    {
+        "activityId": "await-reply",
+        "activityType": "bpmn:ReceiveTask:end",
+        "processLinkType": "plugin",
+        "pluginDefinitionKey": "imap-mail",
+        "pluginActionDefinitionKey": "receive-mail",
+        "pluginConfigurationId": "8e1c4d02-6f3b-4d51-9a7e-2b5c0f1d8a34",
+        "actionProperties": {
+            "recipientContains": "zaakpost+antwoord@valtimo.local"
+        }
+    }
+]

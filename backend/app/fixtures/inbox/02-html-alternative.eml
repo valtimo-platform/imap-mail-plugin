@@ -1,0 +1,30 @@
+From: Robin Bakker <robin.bakker@example.org>
+To: zaakpost@valtimo.local
+Subject: Aanvraag kapvergunning
+Message-ID: <fixture-02-html-alternative@example.org>
+Date: Mon, 7 Sep 2026 10:31:44 +0200
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="alt-boundary-02"
+
+This is a multi-part message in MIME format. A client that cannot read MIME sees this.
+
+--alt-boundary-02
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Plain text variant. If the case shows this, the HTML part was not preferred.
+
+--alt-boundary-02
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <body>
+    <p><strong>HTML variant.</strong> The plugin should pick this part, because
+    multipart/alternative means both parts carry the same content and the HTML one is
+    what the sender actually wrote.</p>
+    <p>Requesting permission to fell one tree at Kerkstraat 12.</p>
+  </body>
+</html>
+
+--alt-boundary-02--

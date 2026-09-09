@@ -1,0 +1,17 @@
+From: Alex Smit <alex.smit@example.org>
+To: zaakpost@valtimo.local
+Subject: Aanvraag ligplaatsvergunning
+Message-ID: <fixture-new-request@example.org>
+Date: Tue, 8 Sep 2026 08:05:00 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+A plain new request, kept out of the preloaded inbox so you have something to send while
+the application is running:
+
+    ./dev.sh send new-request
+
+Within one poll interval a new case should appear in the case list. This is the fixture to
+use when you want to watch the whole path - poll, claim, parse, create case - happen live in
+the log rather than during startup.

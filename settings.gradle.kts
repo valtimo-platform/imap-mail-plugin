@@ -1,4 +1,4 @@
-rootProject.name = "valtimo-plugin-template"
+rootProject.name = "imap-mail-plugin"
 include(
     "backend",
     "backend:app",

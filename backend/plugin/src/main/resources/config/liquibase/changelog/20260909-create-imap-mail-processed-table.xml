@@ -1,0 +1,58 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<!--
+  ~ Copyright 2026 Ritense BV, the Netherlands.
+  ~
+  ~ Licensed under EUPL, Version 1.2 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" basis,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <!--
+      One row per mail that has already started a process. The primary key is the duplicate
+      guard: concurrent claims from two nodes collide here rather than creating two cases.
+    -->
+    <changeSet id="1" author="Ritense">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="imap_mail_processed"/>
+            </not>
+        </preConditions>
+        <createTable tableName="imap_mail_processed">
+            <!-- "<plugin configuration id>|<message identity>"; see IncomingMailHandler.claimKey. -->
+            <column name="mail_identity" type="VARCHAR(512)">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="plugin_configuration_id" type="VARCHAR(256)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="processed_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- Supports the retention job, which deletes by age across all configurations. -->
+    <changeSet id="2" author="Ritense">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_imap_mail_processed_processed_at"/>
+            </not>
+        </preConditions>
+        <createIndex tableName="imap_mail_processed" indexName="idx_imap_mail_processed_processed_at">
+            <column name="processed_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

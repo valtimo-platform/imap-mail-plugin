@@ -1,0 +1,7 @@
+[
+    {
+        "processDefinitionKey": "mail-intake-process",
+        "canInitializeDocument": true,
+        "startableByUser": false
+    }
+]

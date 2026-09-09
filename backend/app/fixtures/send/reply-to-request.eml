@@ -1,0 +1,36 @@
+X-Fixture-Envelope-To: zaakpost@valtimo.local
+From: Jamie de Vries <jamie.devries@example.org>
+To: zaakpost+antwoord@valtimo.local
+Subject: Re: Aanvraag parkeervergunning
+In-Reply-To: <fixture-01-plain-text@example.org>
+References: <fixture-01-plain-text@example.org>
+Message-ID: <fixture-reply-to-request@example.org>
+Date: Tue, 8 Sep 2026 09:30:00 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+You asked for proof of residence. It is on its way by post.
+
+Three headers here are doing the work.
+
+`To:` is the plus-address zaakpost+antwoord@valtimo.local. The receive-mail link on the
+`await-reply` receive task filters on recipientContains = "zaakpost+antwoord@valtimo.local",
+so this mail is offered to that task. The link on the message start event filters on
+recipientContains = "zaakpost@valtimo.local", which this address does NOT contain - the
+"+antwoord" sits in between - so the same mail does not also create a new case.
+
+`References` names <fixture-01-plain-text@example.org>, the Message-ID of 01-plain-text.eml
+and therefore the value of mailMessageId on the case that mail started. That is what decides
+WHICH waiting case is resumed: the filter above only says the mail is a reply, the reference
+says whose. Strip this header and the mail resumes nothing at all - by design, since the
+alternative is delivering it to every case parked at `await-reply`.
+
+That split matters because ReceiveMailProperties can only express positive, AND-ed
+"contains" filters. There is no way to say "subject contains Aanvraag but not Re:", so
+separating intake from replies has to be done on an address the two filters disagree about.
+
+`X-Fixture-Envelope-To` is not a real mail header; ./dev.sh send reads it and uses it as the
+SMTP envelope recipient. Without it the mail would be delivered to a separate
+zaakpost+antwoord mailbox instead of landing in the INBOX the plugin polls, which is exactly
+what an alias or catch-all does on a real server.

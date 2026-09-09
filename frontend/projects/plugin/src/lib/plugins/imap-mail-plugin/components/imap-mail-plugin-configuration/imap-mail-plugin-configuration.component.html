@@ -1,0 +1,208 @@
+<!--
+  ~ Copyright 2026 Ritense BV, the Netherlands.
+  ~
+  ~ Licensed under EUPL, Version 1.2 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" basis,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<v-form
+  (valueChange)="formValueChange($event)"
+  *ngIf="{
+    disabled: disabled$ | async,
+    prefill: prefillConfiguration$ ? (prefillConfiguration$ | async) : null,
+    showPassword: showPassword$ | async,
+    showOAuthFields: showOAuthFields$ | async,
+    showTargetFolder: showTargetFolder$ | async,
+    showFolder: showFolder$ | async,
+    showStartTls: showStartTls$ | async
+  } as obs"
+>
+  <v-input
+    name="configurationTitle"
+    [title]="'configurationTitle' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [disabled]="obs.disabled"
+    [defaultValue]="obs.prefill?.configurationTitle"
+    [required]="true"
+    [placeholder]="'Postbus gemeente'"
+  ></v-input>
+
+  <v-select
+    name="protocol"
+    [items]="protocolItems"
+    [title]="'protocol' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultSelectionId]="obs.prefill?.protocol || 'imaps'"
+    [disabled]="obs.disabled"
+    [required]="true"
+    [tooltip]="'protocolTooltip' | pluginTranslate: pluginId | async"
+  ></v-select>
+
+  <v-input
+    name="host"
+    [title]="'host' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.host"
+    [disabled]="obs.disabled"
+    [required]="true"
+    [placeholder]="'outlook.office365.com'"
+  ></v-input>
+
+  <v-input
+    name="port"
+    type="number"
+    [title]="'port' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.port || defaultPortFor(obs.prefill?.protocol)"
+    [disabled]="obs.disabled"
+    [required]="false"
+    [tooltip]="'portTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+
+  <v-input
+    name="username"
+    [title]="'username' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.username"
+    [disabled]="obs.disabled"
+    [required]="true"
+    [placeholder]="'postbus@gemeente.nl'"
+    [tooltip]="'usernameTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+
+  <v-select
+    name="authentication"
+    [items]="authenticationItems"
+    [title]="'authentication' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultSelectionId]="obs.prefill?.authentication || 'BASIC'"
+    [disabled]="obs.disabled"
+    [required]="true"
+    [tooltip]="'authenticationTooltip' | pluginTranslate: pluginId | async"
+  ></v-select>
+
+  <v-input
+    *ngIf="obs.showPassword"
+    name="password"
+    type="password"
+    [title]="'password' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.password"
+    [disabled]="obs.disabled"
+    [required]="true"
+  ></v-input>
+
+  <ng-container *ngIf="obs.showOAuthFields">
+    <v-input
+      name="oauthTokenUrl"
+      [title]="'oauthTokenUrl' | pluginTranslate: pluginId | async"
+      [margin]="true"
+      [defaultValue]="obs.prefill?.oauthTokenUrl"
+      [disabled]="obs.disabled"
+      [required]="true"
+      [placeholder]="'https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token'"
+      [tooltip]="'oauthTokenUrlTooltip' | pluginTranslate: pluginId | async"
+    ></v-input>
+    <v-input
+      name="oauthClientId"
+      [title]="'oauthClientId' | pluginTranslate: pluginId | async"
+      [margin]="true"
+      [defaultValue]="obs.prefill?.oauthClientId"
+      [disabled]="obs.disabled"
+      [required]="true"
+    ></v-input>
+    <v-input
+      name="oauthClientSecret"
+      type="password"
+      [title]="'oauthClientSecret' | pluginTranslate: pluginId | async"
+      [margin]="true"
+      [defaultValue]="obs.prefill?.oauthClientSecret"
+      [disabled]="obs.disabled"
+      [required]="true"
+    ></v-input>
+    <v-input
+      name="oauthScope"
+      [title]="'oauthScope' | pluginTranslate: pluginId | async"
+      [margin]="true"
+      [defaultValue]="obs.prefill?.oauthScope || 'https://outlook.office365.com/.default'"
+      [disabled]="obs.disabled"
+      [required]="false"
+      [tooltip]="'oauthScopeTooltip' | pluginTranslate: pluginId | async"
+    ></v-input>
+  </ng-container>
+
+  <v-input
+    *ngIf="obs.showStartTls"
+    name="startTlsEnable"
+    type="checkbox"
+    [title]="'startTlsEnable' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.startTlsEnable ?? true"
+    [disabled]="obs.disabled"
+    [required]="false"
+    [tooltip]="'startTlsEnableTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+
+  <v-input
+    *ngIf="obs.showFolder"
+    name="folder"
+    [title]="'folder' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.folder || 'INBOX'"
+    [disabled]="obs.disabled"
+    [required]="false"
+  ></v-input>
+
+  <v-select
+    name="postProcessAction"
+    [items]="postProcessActionItems"
+    [title]="'postProcessAction' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultSelectionId]="obs.prefill?.postProcessAction || 'MARK_READ'"
+    [disabled]="obs.disabled"
+    [required]="true"
+    [tooltip]="'postProcessActionTooltip' | pluginTranslate: pluginId | async"
+  ></v-select>
+
+  <v-input
+    *ngIf="obs.showTargetFolder"
+    name="targetFolder"
+    [title]="'targetFolder' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.targetFolder"
+    [disabled]="obs.disabled"
+    [required]="true"
+    [placeholder]="'Verwerkt'"
+  ></v-input>
+
+  <v-input
+    name="maxMessagesPerPoll"
+    type="number"
+    [title]="'maxMessagesPerPoll' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.maxMessagesPerPoll || 25"
+    [disabled]="obs.disabled"
+    [required]="false"
+    [tooltip]="'maxMessagesPerPollTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+
+  <v-input
+    name="debug"
+    type="checkbox"
+    [title]="'debug' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.debug ?? false"
+    [disabled]="obs.disabled"
+    [required]="false"
+    [tooltip]="'debugTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+</v-form>

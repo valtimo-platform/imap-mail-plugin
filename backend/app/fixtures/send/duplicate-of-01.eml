@@ -1,0 +1,18 @@
+From: Jamie de Vries <jamie.devries@example.org>
+To: zaakpost@valtimo.local
+Subject: Aanvraag parkeervergunning
+Message-ID: <fixture-01-plain-text@example.org>
+Date: Mon, 7 Sep 2026 09:14:02 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Byte-for-byte a resend of 01-plain-text.eml, and in particular it carries the same
+Message-ID.
+
+Send it after the first poll has run and no second case should appear: the plugin already
+holds a claim on `msgid:<fixture-01-plain-text@example.org>` in imap_mail_processed, so this
+copy is recognised as a duplicate, counted as skipped, and marked read.
+
+This is the guard that matters when a mailbox is polled by more than one node, or when
+post-processing failed after a case was already created.

@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: password
 # Ports taken
 #   url: jdbc:postgresql://localhost:54341/slack-test
-#   url: jdbc:postgresql://localhost:54342/sample-plugin
+#   url: jdbc:postgresql://localhost:54342/imap-mail-test
 #   url: jdbc:postgresql://localhost:54343/alfresco-authentication-test
 #   url: jdbc:postgresql://localhost:54344/amsterdam-email-api-test
 #   url: jdbc:postgresql://localhost:54345/berkelybridge-textgenerator-test

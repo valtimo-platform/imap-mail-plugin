@@ -1,3 +1,7 @@
+// Imported rather than written as java.time.Duration inline: in the Kotlin DSL `java`
+// resolves to the JavaPluginExtension, which shadows the package name.
+import java.time.Duration
+
 val kotlinLoggingVersion: String by project
 val nettyResolverDnsNativeMacOsVersion: String by project
 
@@ -28,10 +32,25 @@ apply(from = "../../gradle/environment.gradle.kts")
 val configureEnvironment = extra["configureEnvironment"] as (task: ProcessForkOptions) -> Unit
 
 dockerCompose {
-    setProjectName("valtimo-docker-compose")
+    // ./docker-compose.yml in this module is picked up by default. The project name matches
+    // the `name:` in that file so that bootRun and ./dev.sh act on the same containers rather
+    // than starting a second copy of the stack.
+    setProjectName("imap-mail-dev")
+
+    // Left running after bootRun exits: the mailbox is in-memory, and tearing it down would
+    // throw away the fixtures and the mail state you were just looking at.
     stopContainers = false
     removeContainers = false
     removeVolumes = false
+
+    // Keycloak sits in a compose profile so that `./dev.sh up --no-keycloak` can reuse one
+    // another stack already runs. bootRun has no such option, so it always asks for it.
+    // Override with `COMPOSE_PROFILES= ./gradlew :backend:app:bootRun` if 8081 is taken.
+    environment.put("COMPOSE_PROFILES", System.getenv("COMPOSE_PROFILES") ?: "keycloak")
+
+    // GreenMail and Keycloak both declare healthchecks; wait for them rather than racing the
+    // first mail poll against a mail server that is still binding its ports.
+    waitForHealthyStateTimeout = Duration.ofMinutes(3)
 }
 
 tasks.bootRun {

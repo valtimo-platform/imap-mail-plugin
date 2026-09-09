@@ -15,11 +15,11 @@
  */
 
 /*
- * Public API Surface of sample-plugin
+ * Public API Surface of imap-mail-plugin
  */
 
-export * from "./lib/plugins/sample-plugin/models";
-export * from "./lib/plugins/sample-plugin/sample-plugin-module";
-export * from "./lib/plugins/sample-plugin/sample-plugin.specification";
-export * from "./lib/plugins/sample-plugin/components/sample-plugin-configuration/sample-plugin-configuration.component";
-export * from "./lib/plugins/sample-plugin/components/sample-action-configuration/sample-action-configuration.component";
+export * from "./lib/plugins/imap-mail-plugin/models";
+export * from "./lib/plugins/imap-mail-plugin/imap-mail-plugin-module";
+export * from "./lib/plugins/imap-mail-plugin/imap-mail-plugin.specification";
+export * from "./lib/plugins/imap-mail-plugin/components/imap-mail-plugin-configuration/imap-mail-plugin-configuration.component";
+export * from "./lib/plugins/imap-mail-plugin/components/receive-mail-configuration/receive-mail-configuration.component";

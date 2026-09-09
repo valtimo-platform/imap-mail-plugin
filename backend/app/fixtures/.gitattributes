@@ -1,0 +1,4 @@
+# Mail is a CRLF protocol and these fixtures are handed to the plugin byte for byte, so git
+# must not normalise their line endings. 05-encoded-headers.eml in particular relies on its
+# quoted-printable soft line breaks surviving intact.
+*.eml -text

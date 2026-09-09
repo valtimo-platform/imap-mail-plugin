@@ -1,18 +1,133 @@
-name: plugin-docker-compose
+# Sandbox stack for the IMAP mail plugin.
+#
+# The Valtimo application itself is NOT in here - it runs on the host via
+# `./gradlew :backend:app:bootRun`, which starts this stack first. Everything the app talks
+# to is exposed on localhost, which is why the plugin configuration in
+# `src/main/resources/config/plugin/imap-mail.pluginconfig.json` points at
+# `localhost:3143` rather than at a container name.
+#
+# Use `./dev.sh` rather than driving compose by hand; see backend/app/README.md.
+#
+# Every host port is overridable, because this stack is not the only Valtimo-shaped thing a
+# developer runs: the GZAC stack in particular claims 54320, 54329, 5672 and 8081. Copy
+# backend/app/ports.example to backend/app/.env to move them. Keycloak's 8081 is the one default that is not
+# freely movable - the frontend hardcodes it in
+# frontend/src/environments/auth/keycloak-config.dev.ts and the backend in
+# config/application.yml - so if another stack already serves a Valtimo realm there, use
+# `./backend/app/dev.sh up --no-keycloak` and let the app use that one.
+name: imap-mail-dev
 
 services:
-  plugin-keycloak:
-    container_name: plugin-docker-compose-plugin-keycloak
-    depends_on:
-      - plugin-keycloak-database
-    image: quay.io/keycloak/keycloak:26.2.2
+  # The fake mail server. GreenMail is a test double, not a mail server: it keeps everything
+  # in memory, so stopping the container is how you get a clean mailbox back.
+  greenmail:
+    image: greenmail/standalone:2.1.11
+    container_name: imap-mail-dev-greenmail
+    environment:
+      # - setup.test.all starts SMTP/SMTPS/POP3/POP3S/IMAP/IMAPS together, so the same
+      #   container can serve all four protocols the plugin supports.
+      # - auth.disabled accepts any password and creates the user on first login. A fixture
+      #   should fail because of what the plugin does with it, never because of credentials.
+      # - preload.dir seeds the mailbox from the bind mount below on every container start.
+      #
+      # Add -Dgreenmail.verbose to see the server side of the IMAP dialogue in
+      # `./dev.sh logs greenmail`. It is loud; the plugin's own `debug` property gives you
+      # the client side of the same conversation.
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.all
+        -Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.auth.disabled
+        -Dgreenmail.preload.dir=/preload
     ports:
-      - "8081:8080"
+      - "${SMTP_HOST_PORT:-3025}:3025" # SMTP  - used by ./dev.sh send
+      - "${POP3_HOST_PORT:-3110}:3110" # POP3  - for testing protocol=pop3
+      - "${IMAP_HOST_PORT:-3143}:3143" # IMAP  - what the plugin connects to by default
+      - "${SMTPS_HOST_PORT:-3465}:3465" # SMTPS
+      - "${IMAPS_HOST_PORT:-3993}:3993" # IMAPS - self-signed, see README before pointing the plugin at it
+      - "${POP3S_HOST_PORT:-3995}:3995" # POP3S
+      - "${GREENMAIL_API_HOST_PORT:-8082}:8080" # REST API (users, configuration)
+    volumes:
+      # GreenMail's preload layout is <dir>/<address>/<FOLDER>, so mounting straight onto the
+      # folder path keeps ./fixtures/inbox a flat, readable directory of .eml files.
+      - ./fixtures/inbox:/preload/zaakpost@valtimo.local/INBOX:ro
+    healthcheck:
+      # The image has no curl or wget, but it does have bash - hence /dev/tcp.
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/3143 && </dev/tcp/127.0.0.1/3025'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 5s
+
+  # Sends fixtures over SMTP and inspects the mailbox over IMAP. A container rather than a
+  # host script so it behaves the same on every machine and needs no local Python.
+  mail-tools:
+    image: python:3.13-alpine
+    container_name: imap-mail-dev-mail-tools
+    profiles: ["tools"] # never started by `up`; only by `docker compose run`
+    depends_on:
+      greenmail:
+        condition: service_healthy
+    environment:
+      GREENMAIL_HOST: greenmail
+      GREENMAIL_SMTP_PORT: "3025"
+      GREENMAIL_IMAP_PORT: "3143"
+      MAILBOX: zaakpost@valtimo.local
+    volumes:
+      - ./tools:/tools:ro
+      - ./fixtures:/fixtures:ro
+    entrypoint: ["python", "/tools/mailctl.py"]
+
+  valtimo-database:
+    image: postgres:17.4
+    container_name: imap-mail-dev-valtimo-database
+    ports:
+      - "${VALTIMO_DB_HOST_PORT:-54360}:5432"
+    environment:
+      POSTGRES_USER: plugin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: plugin
+    volumes:
+      - valtimo-database-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plugin -d plugin"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  # Keycloak and its database sit in a profile that ./dev.sh enables by default. The profile
+  # is what makes `./backend/app/dev.sh up --no-keycloak` possible.
+  keycloak-database:
+    image: postgres:17.4
+    container_name: imap-mail-dev-keycloak-database
+    profiles: ["keycloak"]
+    ports:
+      - "${KEYCLOAK_DB_HOST_PORT:-54361}:5432"
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak-database-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2.2
+    container_name: imap-mail-dev-keycloak
+    profiles: ["keycloak"]
+    depends_on:
+      keycloak-database:
+        condition: service_healthy
+    ports:
+      - "${KEYCLOAK_HOST_PORT:-8081}:8080"
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://plugin-keycloak-database/keycloak
+      KC_DB_URL: jdbc:postgresql://keycloak-database/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
       KC_FEATURES: token-exchange,admin-fine-grained-authz
@@ -27,49 +142,30 @@ services:
       - --http-enabled=true
       - --hostname-strict=false
     healthcheck:
-      test: [ 'CMD-SHELL', '[ -f /tmp/HealthCheck.java ] || echo "public class HealthCheck { public static void main(String[] args) throws java.lang.Throwable { System.exit(((java.net.HttpURLConnection)new java.net.URL(args[0]).openConnection()).getResponseCode() == 200 ? 0 : 1); } }" > /tmp/HealthCheck.java && java /tmp/HealthCheck.java http://localhost:8080/auth' ]
+      test: ['CMD-SHELL', '[ -f /tmp/HealthCheck.java ] || echo "public class HealthCheck { public static void main(String[] args) throws java.lang.Throwable { System.exit(((java.net.HttpURLConnection)new java.net.URL(args[0]).openConnection()).getResponseCode() == 200 ? 0 : 1); } }" > /tmp/HealthCheck.java && java /tmp/HealthCheck.java http://localhost:8080/auth']
       interval: 10s
       timeout: 5s
       retries: 60
       start_period: 5s
 
-  plugin-keycloak-database:
-    image: postgres:17.4
-    container_name: plugin-docker-compose-plugin-keycloak-database
-    ports:
-      - "54329:5432"
-    environment:
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
-
-  plugin-database:
-    container_name: plugin-docker-compose-plugin-database
-    image: postgres:17.4
-    ports:
-      - "54320:5432"
-    environment:
-      POSTGRES_USER: plugin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: plugin
-    volumes:
-      - plugin-database-data:/var/lib/postgres # persist data even if container shuts down
-
-  plugin-rabbitmq:
+  # Nothing in this sandbox uses RabbitMQ - the application has no AMQP configuration at all.
+  # It is kept behind a profile for plugins that do need it: `./dev.sh up --with-rabbitmq`.
+  rabbitmq:
     image: rabbitmq:4.1.0-management
-    container_name: plugin-docker-compose-plugin-rabbitmq
-    volumes:
-      - ./imports/plugin-rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./imports/plugin-rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    container_name: imap-mail-dev-rabbitmq
+    profiles: ["rabbitmq"]
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_HOST_PORT:-5673}:5672"
+      - "${RABBITMQ_MGMT_HOST_PORT:-15673}:15672"
     environment:
-      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq.conf
-    command: >
-      bash -c "
-        rabbitmq-plugins enable --offline rabbitmq_stream rabbitmq_stream_management &&
-        rabbitmq-server
-      "
+      RABBITMQ_DEFAULT_USER: plugin
+      RABBITMQ_DEFAULT_PASS: password
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
 
 volumes:
-  plugin-database-data:
+  valtimo-database-data:
+  keycloak-database-data:

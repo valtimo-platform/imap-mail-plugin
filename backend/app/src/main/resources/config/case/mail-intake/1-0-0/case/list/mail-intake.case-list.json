@@ -1,0 +1,33 @@
+[
+    {
+        "key": "mailSubject",
+        "path": "doc:/mailSubject",
+        "displayType": {
+            "type": "text",
+            "displayTypeParameters": {}
+        },
+        "sortable": true,
+        "order": 0
+    },
+    {
+        "key": "mailSender",
+        "path": "doc:/mailSender",
+        "displayType": {
+            "type": "text",
+            "displayTypeParameters": {}
+        },
+        "sortable": true,
+        "order": 1
+    },
+    {
+        "key": "createdOn",
+        "path": "case:createdOn",
+        "displayType": {
+            "type": "date",
+            "displayTypeParameters": {}
+        },
+        "sortable": true,
+        "defaultSort": "DESC",
+        "order": 2
+    }
+]

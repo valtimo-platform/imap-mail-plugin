@@ -1,0 +1,35 @@
+# Sandbox host ports. Copy this file to backend/app/.env to move the stack off a port that something
+# else on your machine already holds:
+#
+#   cp backend/app/ports.example backend/app/.env
+#
+# docker compose reads backend/app/.env automatically; dev.sh sources it too, so the addresses it
+# prints stay accurate. backend/app/.env is gitignored.
+#
+# Changing a port here is only half the job for the two the application also hardcodes:
+#   VALTIMO_DB_HOST_PORT  -> src/main/resources/config/application.yml
+#                            (spring.datasource.url)
+#   KEYCLOAK_HOST_PORT    -> the same file (spring.security.oauth2.*) and
+#                            frontend/src/environments/auth/keycloak-config.dev.ts
+# The mail ports need no such follow-up beyond the plugin configuration in
+# config/plugin/imap-mail.pluginconfig.json.
+
+# Mail server
+#SMTP_HOST_PORT=3025
+#POP3_HOST_PORT=3110
+#IMAP_HOST_PORT=3143
+#SMTPS_HOST_PORT=3465
+#IMAPS_HOST_PORT=3993
+#POP3S_HOST_PORT=3995
+#GREENMAIL_API_HOST_PORT=8082
+
+# Databases
+#VALTIMO_DB_HOST_PORT=54360
+#KEYCLOAK_DB_HOST_PORT=54361
+
+# Keycloak
+#KEYCLOAK_HOST_PORT=8081
+
+# RabbitMQ, only started with `./dev.sh up --with-rabbitmq`
+#RABBITMQ_HOST_PORT=5673
+#RABBITMQ_MGMT_HOST_PORT=15673

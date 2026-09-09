@@ -1,6 +1,6 @@
 spring:
   application:
-    name: valtimo-plugin-template
+    name: imap-mail-plugin-sandbox
   profiles:
     active: dev
   jackson:
@@ -9,7 +9,10 @@ spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:54320/plugin
+    # Port 54360 rather than the more usual 54320: the GZAC compose stack publishes its own
+    # database there, and the two have to be able to run side by side. See
+    # backend/app/ports.example.
+    url: jdbc:postgresql://localhost:54360/plugin
     username: plugin
     password: password
     hikari:
@@ -82,6 +85,15 @@ valtimo:
         - localhost
   plugin:
     encryption-secret: "abcdefghijklmnop"
+  imap-mail:
+    # Every 15 seconds instead of the plugin's 5-minute default, so a fixture sent with
+    # `backend/app/dev.sh send` shows up while you are still looking at the log.
+    poll-cron: "*/15 * * * * *"
+    # Set to false to leave the plugin installed and configurable but stop it opening the
+    # mailbox - useful when you want to inspect a mailbox by hand without the poller
+    # marking everything read underneath you.
+    polling-enabled: true
+    retention-days: 90
   docker:
     filter:
       enabled: true

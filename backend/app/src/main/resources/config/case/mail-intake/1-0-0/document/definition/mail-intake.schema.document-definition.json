@@ -1,0 +1,73 @@
+{
+    "$id": "mail-intake.schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Mail Intake",
+    "type": "object",
+    "properties": {
+        "mailIdentity": {
+            "type": "string",
+            "description": "Key the plugin uses for duplicate detection: msgid:, uid: or digest:"
+        },
+        "mailSubject": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Decoded Subject header"
+        },
+        "mailSender": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Address from the From header"
+        },
+        "mailSenderName": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Display name from the From header, absent when the sender used a bare address"
+        },
+        "mailReceivedAt": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "When the mail server received the message, as an ISO-8601 instant"
+        },
+        "mailBodyResourceId": {
+            "type": "string",
+            "description": "Temporary resource storage id of the body; the body itself is never a process variable"
+        },
+        "mailBodyIsHtml": {
+            "type": "boolean",
+            "description": "True when the body resource holds HTML rather than plain text"
+        },
+        "mailAttachmentCount": {
+            "type": "integer",
+            "description": "Number of attachments stored in temporary resource storage"
+        },
+        "replySubject": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Subject of the mail that resumed the case at the receive task"
+        },
+        "replyReceivedAt": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "When the reply was received, as an ISO-8601 instant"
+        },
+        "replyBodyResourceId": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Temporary resource storage id of the reply body"
+        }
+    }
+}

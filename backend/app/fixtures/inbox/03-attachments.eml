@@ -1,0 +1,37 @@
+From: Sam Jansen <sam.jansen@example.org>
+To: zaakpost@valtimo.local
+Subject: Aanvraag omgevingsvergunning met bijlagen
+Message-ID: <fixture-03-attachments@example.org>
+Date: Mon, 7 Sep 2026 11:02:19 +0200
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mixed-boundary-03"
+
+--mixed-boundary-03
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Attached are the site drawing and the plot table for the application at
+Kerkstraat 12.
+
+--mixed-boundary-03
+Content-Type: application/pdf; name="situatietekening.pdf"
+Content-Disposition: attachment; filename="situatietekening.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBv
+Ymo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlw
+ZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDgwXS9Db250ZW50cyA0IDAgUi9S
+ZXNvdXJjZXM8PC9Gb250PDwvRjEgNSAwIFI+Pj4+Pj5lbmRvYmoKNCAwIG9iajw8L0xlbmd0aCA2
+Mj4+c3RyZWFtCkJUIC9GMSAxMiBUZiAxMiA0MCBUZCAoU2l0dWF0aWV0ZWtlbmluZyBLZXJrc3Ry
+YWF0IDEyKSBUaiBFVAplbmRzdHJlYW0gZW5kb2JqCjUgMCBvYmo8PC9UeXBlL0ZvbnQvU3VidHlw
+ZS9UeXBlMS9CYXNlRm9udC9IZWx2ZXRpY2E+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+
+CiUlRU9GCg==
+
+--mixed-boundary-03
+Content-Type: text/csv; charset=UTF-8; name="percelen.csv"
+Content-Transfer-Encoding: base64
+
+cGVyY2VlbDtvcHBlcnZsYWt0ZTtiZXN0ZW1taW5nDQpLLTEwNDI7MTIwO3dvbmVuDQpLLTEwNDM7
+ODU7dHVpbg0K
+
+--mixed-boundary-03--

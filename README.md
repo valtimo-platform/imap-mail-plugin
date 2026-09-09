@@ -1,21 +1,28 @@
-# Valtimo Plugin Template
+# IMAP mail Plugin
 
-A template repository for building your own Valtimo plugins. Copy this project to get a ready-made structure with build
-configuration, CI/CD workflows, and a working example to start from.
+Een externe mailbox uitlezen via IMAP of POP3 en per e-mail een zaak starten.
 
-## Getting started
+Deze plugin doet alleen de inkomende richting. Voor het versturen van e-mail zijn er de
+[SMTP mail plugin](https://github.com/valtimo-platform/smtpmail-plugin) en de
+[Microsoft Graph mail plugin](https://github.com/valtimo-platform/graph-mail-plugin); een
+mailverwerkingsproces gebruikt deze plugin om te ontvangen en een van die twee om te antwoorden.
 
-1. Copy or fork this repository
-2. Rename the sample plugin package, module, and configuration to match your plugin
-3. Follow the [Getting Started](documentation/getting-started.md) guide for setup and development instructions
+## Documentatie
 
-## Documentation
+- [Aan de slag](documentation/getting-started.md) — installatie, gebruik en ontwikkelinstructies
+- [Plugin documentatie](documentation/plugin.md) — pluginsdetails en configuratie
+- [Voorbeeldapplicatie](documentation/example-application.md) — de sandbox lokaal draaien
+- [Sandbox](backend/app/README.md) — nepmailserver, fixtures en `backend/app/dev.sh`
+- [Release-notities](documentation/release-notes.md) — versiegeschiedenis en wijzigingen
 
-- [Getting Started](documentation/getting-started.md) — setup and development instructions
-- [Example Application](documentation/example-application.md) — running the example app locally
-- [Sample Plugin](documentation/plugin.md) — reference implementation included in this template
-- [Release notes](documentation/release-notes.md) — version history and changes
+## Snel proberen
+
+```shell
+./backend/app/dev.sh up                # nepmailserver met fixtures, database, Keycloak
+./gradlew :backend:app:bootRun         # start de sandboxapplicatie
+./backend/app/dev.sh send new-request  # stuur een e-mail; er verschijnt een zaak
+```
 
 ## Contact
 
--- contact person name (company name) --
+Klaas Schuijtemaker (Ritense)

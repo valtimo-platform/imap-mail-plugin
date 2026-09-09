@@ -1,0 +1,17 @@
+From: anonymous-form@example.org
+To: zaakpost@valtimo.local
+Subject: Aanvraag zonder Message-ID
+Date: Mon, 7 Sep 2026 11:47:03 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+There is deliberately no Message-ID header on this mail. RFC 5322 only makes it a SHOULD,
+and web forms that inject mail directly do sometimes omit it.
+
+The plugin should fall back to the IMAP UID - qualified with the host, folder and
+UIDVALIDITY - so the mail still gets a stable identity for duplicate detection. Look for a
+`uid:` prefix instead of `msgid:` in the imap_mail_processed table.
+
+Note also that the From header carries a bare address with no display name, so mailSenderName
+should be absent from the process variables rather than empty.

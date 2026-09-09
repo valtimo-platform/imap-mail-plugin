@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sandbox process for the IMAP mail plugin.
+
+  Two elements carry a `receive-mail` process link, which is what makes the poller open the
+  mailbox at all - see MailboxPollingService, which derives the mailboxes to poll from the
+  links rather than from the plugin configurations.
+
+  - `mail-received` is a message start event, so every matching mail creates a new case.
+  - `await-reply` is a receive task, so a matching mail resumes cases already waiting there.
+
+  The execution listeners copy the mail* process variables the plugin sets into the document,
+  because process variables are not visible in the case UI and are pruned with history while
+  the document is the case file. The body and the attachments stay out: they live in
+  temporary resource storage and only their resource ids travel as variables.
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.39.0">
+    <bpmn:message id="IncomingMailMessage" name="IncomingMail"/>
+    <bpmn:collaboration id="Collaboration_1">
+        <bpmn:participant id="mail-intake-participant" name="Mail Intake" processRef="mail-intake-process"/>
+    </bpmn:collaboration>
+    <bpmn:process id="mail-intake-process" name="Mail Intake" isExecutable="true">
+        <bpmn:startEvent id="mail-received" name="Mail received">
+            <bpmn:extensionElements>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailIdentity', execution.getVariable('mailIdentity'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailSubject', execution.getVariable('mailSubject'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailSender', execution.getVariable('mailSender'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailSenderName', execution.getVariable('mailSenderName'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailReceivedAt', execution.getVariable('mailReceivedAt'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailBodyResourceId', execution.getVariable('mailBodyResourceId'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailBodyIsHtml', execution.getVariable('mailBodyIsHtml'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailAttachmentCount', execution.getVariable('mailAttachmentCount'))}"/>
+            </bpmn:extensionElements>
+            <!-- The BPMN 2.0 schema puts eventDefinition last, after incoming/outgoing. -->
+            <bpmn:outgoing>Flow_1</bpmn:outgoing>
+            <bpmn:messageEventDefinition id="MessageEventDefinition_1" messageRef="IncomingMailMessage"/>
+        </bpmn:startEvent>
+        <!--
+          The receive task comes before the user task so that a case reaches the waiting state
+          the moment it is created. That ordering is what makes the reply path testable without
+          having to click a task first, and it reads sensibly enough: the case waits for the
+          supplementary information the applicant was asked for, and only then is reviewed.
+
+          A receive task rather than a message intermediate catch event, deliberately.
+          MailProcessStarter resumes a RECEIVE_TASK_END link with runtimeService.signal, which
+          needs nothing but the execution; the catch-event branch instead resolves a message
+          name from the BPMN model. Both work, but the receive task is the smaller surface.
+        -->
+        <bpmn:receiveTask id="await-reply" name="Await supplementary information by mail">
+            <bpmn:extensionElements>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/replySubject', execution.getVariable('mailSubject'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/replyReceivedAt', execution.getVariable('mailReceivedAt'))}"/>
+                <camunda:executionListener event="end"
+                                           expression="${valueResolverDelegateService.handleValue(execution, 'doc:/replyBodyResourceId', execution.getVariable('mailBodyResourceId'))}"/>
+            </bpmn:extensionElements>
+            <bpmn:incoming>Flow_1</bpmn:incoming>
+            <bpmn:outgoing>Flow_2</bpmn:outgoing>
+        </bpmn:receiveTask>
+        <bpmn:userTask id="review-mail" name="Review the application">
+            <bpmn:incoming>Flow_2</bpmn:incoming>
+            <bpmn:outgoing>Flow_3</bpmn:outgoing>
+        </bpmn:userTask>
+        <bpmn:endEvent id="end-event" name="Handled">
+            <bpmn:incoming>Flow_3</bpmn:incoming>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="Flow_1" sourceRef="mail-received" targetRef="await-reply"/>
+        <bpmn:sequenceFlow id="Flow_2" sourceRef="await-reply" targetRef="review-mail"/>
+        <bpmn:sequenceFlow id="Flow_3" sourceRef="review-mail" targetRef="end-event"/>
+    </bpmn:process>
+    <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+        <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+            <bpmndi:BPMNShape id="Participant_1_di" bpmnElement="mail-intake-participant" isHorizontal="true">
+                <dc:Bounds x="160" y="100" width="720" height="200"/>
+            </bpmndi:BPMNShape>
+            <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="mail-received">
+                <dc:Bounds x="232" y="182" width="36" height="36"/>
+                <bpmndi:BPMNLabel>
+                    <dc:Bounds x="221" y="225" width="60" height="14"/>
+                </bpmndi:BPMNLabel>
+            </bpmndi:BPMNShape>
+            <bpmndi:BPMNShape id="UserTask_1_di" bpmnElement="review-mail">
+                <dc:Bounds x="500" y="160" width="100" height="80"/>
+            </bpmndi:BPMNShape>
+            <bpmndi:BPMNShape id="ReceiveTask_1_di" bpmnElement="await-reply">
+                <dc:Bounds x="330" y="160" width="100" height="80"/>
+            </bpmndi:BPMNShape>
+            <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="end-event">
+                <dc:Bounds x="682" y="182" width="36" height="36"/>
+                <bpmndi:BPMNLabel>
+                    <dc:Bounds x="680" y="225" width="42" height="14"/>
+                </bpmndi:BPMNLabel>
+            </bpmndi:BPMNShape>
+            <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+                <di:waypoint x="268" y="200"/>
+                <di:waypoint x="330" y="200"/>
+            </bpmndi:BPMNEdge>
+            <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+                <di:waypoint x="430" y="200"/>
+                <di:waypoint x="500" y="200"/>
+            </bpmndi:BPMNEdge>
+            <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+                <di:waypoint x="600" y="200"/>
+                <di:waypoint x="682" y="200"/>
+            </bpmndi:BPMNEdge>
+        </bpmndi:BPMNPlane>
+    </bpmndi:BPMNDiagram>
+</bpmn:definitions>

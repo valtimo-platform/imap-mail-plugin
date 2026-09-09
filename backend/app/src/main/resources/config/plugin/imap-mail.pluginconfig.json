@@ -1,0 +1,20 @@
+[
+    {
+        "id": "8e1c4d02-6f3b-4d51-9a7e-2b5c0f1d8a34",
+        "title": "Sandbox mailbox (GreenMail)",
+        "pluginDefinitionKey": "imap-mail",
+        "properties": {
+            "host": "localhost",
+            "port": 3143,
+            "protocol": "imap",
+            "username": "zaakpost@valtimo.local",
+            "password": "zaakpost",
+            "authentication": "BASIC",
+            "folder": "INBOX",
+            "startTlsEnable": false,
+            "maxMessagesPerPoll": 25,
+            "postProcessAction": "MARK_READ",
+            "debug": false
+        }
+    }
+]

@@ -1,0 +1,58 @@
+<!--
+  ~ Copyright 2026 Ritense BV, the Netherlands.
+  ~
+  ~ Licensed under EUPL, Version 1.2 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" basis,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<p style="margin-bottom: 1.5rem">{{ 'actionDescription' | pluginTranslate: pluginId | async }}</p>
+
+<v-form
+  (valueChange)="formValueChange($event)"
+  *ngIf="{
+    disabled: disabled$ | async,
+    prefill: prefillConfiguration$ ? (prefillConfiguration$ | async) : null
+  } as obs"
+>
+  <v-input
+    name="senderContains"
+    [title]="'senderContains' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.senderContains"
+    [disabled]="obs.disabled"
+    [required]="false"
+    [placeholder]="'@gemeente.nl'"
+    [tooltip]="'senderContainsTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+
+  <v-input
+    name="subjectContains"
+    [title]="'subjectContains' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.subjectContains"
+    [disabled]="obs.disabled"
+    [required]="false"
+    [placeholder]="'Bezwaar'"
+    [tooltip]="'subjectContainsTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+
+  <v-input
+    name="recipientContains"
+    [title]="'recipientContains' | pluginTranslate: pluginId | async"
+    [margin]="true"
+    [defaultValue]="obs.prefill?.recipientContains"
+    [disabled]="obs.disabled"
+    [required]="false"
+    [placeholder]="'bezwaar@gemeente.nl'"
+    [tooltip]="'recipientContainsTooltip' | pluginTranslate: pluginId | async"
+  ></v-input>
+</v-form>

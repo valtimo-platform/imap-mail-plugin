@@ -1,0 +1,48 @@
+From: Kim Visser <kim.visser@example.org>
+To: zaakpost@valtimo.local
+Subject: Aanvraag met geneste bijlagen
+Message-ID: <fixture-06-nested@example.org>
+Date: Mon, 7 Sep 2026 14:05:11 +0200
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="outer-06"
+
+--outer-06
+Content-Type: multipart/related; boundary="related-06"
+
+--related-06
+Content-Type: multipart/alternative; boundary="alt-06"
+
+--alt-06
+Content-Type: text/plain; charset=UTF-8
+
+Plain variant of a mail nested three multiparts deep.
+
+--alt-06
+Content-Type: text/html; charset=UTF-8
+
+<html><body>
+<p>HTML variant, three multiparts deep: mixed &gt; related &gt; alternative.</p>
+<p>The logo below is an inline image, referenced by Content-ID:</p>
+<img src="cid:logo-06@example.org" alt="logo">
+</body></html>
+
+--alt-06--
+
+--related-06
+Content-Type: image/gif; name="logo.gif"
+Content-Disposition: inline; filename="logo.gif"
+Content-ID: <logo-06@example.org>
+Content-Transfer-Encoding: base64
+
+R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7
+
+--related-06--
+
+--outer-06
+Content-Type: text/csv; charset=UTF-8
+Content-Disposition: attachment; filename="../../../etc/passwd"
+Content-Transfer-Encoding: base64
+
+cGVyY2VlbG51bW1lcixlaWdlbmFhcgpLLTEwNDIsZ2VtZWVudGUK
+
+--outer-06--

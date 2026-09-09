@@ -1,0 +1,27 @@
+From: =?utf-8?b?V8OtbGxlbWlqbiDDmC4gZGUgR3Jvb3QtxaBpbWnEhw==?= <willemijn.degroot@example.org>
+To: zaakpost@valtimo.local
+Cc: Gemachtigde <advocaat@example.net>, archief@valtimo.local
+Subject: =?utf-8?q?Aanvraag=3A_bezwaar_tegen_besluit_=E2=80=94_caf=C3=A9_?=
+ =?utf-8?q?=27t_Hoekje?=
+Message-ID: <fixture-05-encoded-headers@example.org>
+Date: Mon, 7 Sep 2026 13:20:55 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Beste medewerker,
+
+Hierbij maak ik bezwaar tegen het besluit over caf=C3=A9 't Hoekje op de ho=
+ek van de
+Kerkstraat. De terrasvergunning is geweigerd met verwijzing naar =C2=A74 li=
+d 2 =E2=80=94 die
+verwijzing lijkt mij niet juist.
+
+Deze e-mail test drie dingen tegelijk: RFC 2047 encoded-words in Subject en=
+ From,
+een quoted-printable body met niet-ASCII tekens (=C3=A9, =C3=B8, =C5=A1, =
+=C2=A7, =E2=80=94), en een Cc-adres dat
+in mailCcRecipients terecht moet komen.
+
+Met vriendelijke groet,
+W=C3=ADllemijn =C3=98. de Groot-=C5=A0imi=C4=87

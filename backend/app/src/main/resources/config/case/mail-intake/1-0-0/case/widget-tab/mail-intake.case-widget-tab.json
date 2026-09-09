@@ -1,0 +1,134 @@
+[
+    {
+        "key": "summary",
+        "widgets": [
+            {
+                "type": "fields",
+                "key": "incoming-mail",
+                "title": "Incoming mail",
+                "width": 4,
+                "highContrast": true,
+                "properties": {
+                    "columns": [
+                        [
+                            {
+                                "key": "mailSubject",
+                                "title": "Subject",
+                                "value": "doc:/mailSubject",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": false
+                                }
+                            },
+                            {
+                                "key": "mailSender",
+                                "title": "From",
+                                "value": "doc:/mailSender",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": false
+                                }
+                            },
+                            {
+                                "key": "mailSenderName",
+                                "title": "Sender name",
+                                "value": "doc:/mailSenderName",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": true
+                                }
+                            },
+                            {
+                                "key": "mailReceivedAt",
+                                "title": "Received at",
+                                "value": "doc:/mailReceivedAt",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": false
+                                }
+                            }
+                        ],
+                        [
+                            {
+                                "key": "mailAttachmentCount",
+                                "title": "Attachments",
+                                "value": "doc:/mailAttachmentCount",
+                                "displayProperties": {
+                                    "type": "number",
+                                    "hideWhenEmpty": false
+                                }
+                            },
+                            {
+                                "key": "mailBodyIsHtml",
+                                "title": "Body is HTML",
+                                "value": "doc:/mailBodyIsHtml",
+                                "displayProperties": {
+                                    "type": "boolean",
+                                    "hideWhenEmpty": false
+                                }
+                            },
+                            {
+                                "key": "mailBodyResourceId",
+                                "title": "Body resource id",
+                                "value": "doc:/mailBodyResourceId",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": false
+                                }
+                            },
+                            {
+                                "key": "mailIdentity",
+                                "title": "Duplicate-detection key",
+                                "value": "doc:/mailIdentity",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": false
+                                }
+                            }
+                        ]
+                    ]
+                }
+            },
+            {
+                "type": "fields",
+                "key": "reply",
+                "title": "Reply that resumed the case",
+                "width": 2,
+                "highContrast": false,
+                "properties": {
+                    "columns": [
+                        [
+                            {
+                                "key": "replySubject",
+                                "title": "Subject",
+                                "value": "doc:/replySubject",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": true
+                                }
+                            },
+                            {
+                                "key": "replyReceivedAt",
+                                "title": "Received at",
+                                "value": "doc:/replyReceivedAt",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": true
+                                }
+                            },
+                            {
+                                "key": "replyBodyResourceId",
+                                "title": "Body resource id",
+                                "value": "doc:/replyBodyResourceId",
+                                "displayProperties": {
+                                    "type": "text",
+                                    "hideWhenEmpty": true
+                                }
+                            }
+                        ]
+                    ]
+                }
+            }
+        ]
+    }
+]
