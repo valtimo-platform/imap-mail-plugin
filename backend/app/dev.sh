@@ -23,6 +23,8 @@ SMTP_HOST_PORT="${SMTP_HOST_PORT:-3025}"
 GREENMAIL_API_HOST_PORT="${GREENMAIL_API_HOST_PORT:-8082}"
 KEYCLOAK_HOST_PORT="${KEYCLOAK_HOST_PORT:-8081}"
 VALTIMO_DB_HOST_PORT="${VALTIMO_DB_HOST_PORT:-54360}"
+MINIO_HOST_PORT="${MINIO_HOST_PORT:-9000}"
+MINIO_CONSOLE_HOST_PORT="${MINIO_CONSOLE_HOST_PORT:-9001}"
 
 compose() {
     docker compose -f "$APP_DIR/docker-compose.yml" --project-directory "$APP_DIR" "$@"
@@ -53,15 +55,29 @@ check_ports() {
     # Ports this project already publishes are a restart, not a clash. Read from `docker ps`
     # rather than `docker compose ps`, whose Publishers template prints the published port as
     # a positional field with no "->" to anchor on.
+    # Docker collapses adjacent published ports into a range - MinIO shows up as
+    # "0.0.0.0:9000-9001->9000-9001/tcp", not as two entries - so the mappings are expanded
+    # into one port per line before matching. Anchoring on ":$port->" alone missed every
+    # port inside a range and reported our own running containers as a foreign clash.
     local ours
-    ours=$(docker ps --filter "label=com.docker.compose.project=imap-mail-dev" --format '{{.Ports}}' 2>/dev/null || true)
+    ours=$(docker ps --filter "label=com.docker.compose.project=imap-mail-dev" --format '{{.Ports}}' 2>/dev/null |
+        tr ',' '\n' |
+        awk -F'->' '/->/ {
+            split($1, address, ":")
+            published = address[length(address)]
+            if (split(published, range, "-") == 2) {
+                for (port = range[1]; port <= range[2]; port++) print port
+            } else {
+                print published
+            }
+        }' || true)
 
     local blocked=()
     for entry in "$@"; do
         local port="${entry%%:*}"
         local label="${entry#*:}"
         if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
-            grep -q ":$port->" <<<"$ours" || blocked+=("$port ($label)")
+            grep -qx "$port" <<<"$ours" || blocked+=("$port ($label)")
         fi
     done
     [[ ${#blocked[@]} -eq 0 ]] && return 0
@@ -94,7 +110,7 @@ cmd_up() {
 
     require_docker
 
-    local ports=("$IMAP_HOST_PORT:IMAP" "$SMTP_HOST_PORT:SMTP" "$GREENMAIL_API_HOST_PORT:mail API" "$VALTIMO_DB_HOST_PORT:Valtimo database")
+    local ports=("$IMAP_HOST_PORT:IMAP" "$SMTP_HOST_PORT:SMTP" "$GREENMAIL_API_HOST_PORT:mail API" "$VALTIMO_DB_HOST_PORT:Valtimo database" "$MINIO_HOST_PORT:MinIO" "$MINIO_CONSOLE_HOST_PORT:MinIO console")
     [[ $with_keycloak -eq 1 ]] && ports+=("$KEYCLOAK_HOST_PORT:Keycloak")
     check_ports "${ports[@]}"
 
@@ -109,6 +125,8 @@ Sandbox is up.
   Mail server (SMTP)   localhost:$SMTP_HOST_PORT
   Mail server API      http://localhost:$GREENMAIL_API_HOST_PORT/api/user
   Valtimo database     localhost:$VALTIMO_DB_HOST_PORT   plugin/password, database 'plugin'
+  MinIO (S3)           http://localhost:$MINIO_HOST_PORT   bucket 'valtimo', minioadmin/minioadmin
+  MinIO console        http://localhost:$MINIO_CONSOLE_HOST_PORT
 EOF
     if [[ $with_keycloak -eq 1 ]]; then
         echo "  Keycloak             http://localhost:$KEYCLOAK_HOST_PORT/auth   (admin/admin)"

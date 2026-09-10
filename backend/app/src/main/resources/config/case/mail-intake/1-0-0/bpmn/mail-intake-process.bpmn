@@ -11,8 +11,10 @@
 
   The execution listeners copy the mail* process variables the plugin sets into the document,
   because process variables are not visible in the case UI and are pruned with history while
-  the document is the case file. The body and the attachments stay out: they live in
-  temporary resource storage and only their resource ids travel as variables.
+  the document is the case file. The body and the attachments are not variables at all - they
+  live in temporary resource storage and only their resource ids travel - so a last listener
+  hands them to MailDocumentAttachments, which moves them into S3 and links them to the
+  document. That is what fills the Documents tab.
 -->
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
                   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
@@ -46,6 +48,16 @@
                                            expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailBodyIsHtml', execution.getVariable('mailBodyIsHtml'))}"/>
                 <camunda:executionListener event="end"
                                            expression="${valueResolverDelegateService.handleValue(execution, 'doc:/mailAttachmentCount', execution.getVariable('mailAttachmentCount'))}"/>
+                <!--
+                  Last, because it consumes the resources the earlier listeners only recorded
+                  the ids of: it moves the body and the attachments out of temporary storage
+                  into S3 and links them to the document, which is what the Documents tab
+                  lists. The doc:/mailBodyResourceId written above becomes a stale id at that
+                  point - it is kept because seeing the plugin's own output is the sandbox's
+                  job, and MailDocumentAttachments explains the split.
+                -->
+                <camunda:executionListener event="end"
+                                           expression="${mailDocumentAttachments.attach(execution)}"/>
             </bpmn:extensionElements>
             <!-- The BPMN 2.0 schema puts eventDefinition last, after incoming/outgoing. -->
             <bpmn:outgoing>Flow_1</bpmn:outgoing>
@@ -70,6 +82,9 @@
                                            expression="${valueResolverDelegateService.handleValue(execution, 'doc:/replyReceivedAt', execution.getVariable('mailReceivedAt'))}"/>
                 <camunda:executionListener event="end"
                                            expression="${valueResolverDelegateService.handleValue(execution, 'doc:/replyBodyResourceId', execution.getVariable('mailBodyResourceId'))}"/>
+                <!-- The reply's body and attachments join the case file the same way. -->
+                <camunda:executionListener event="end"
+                                           expression="${mailDocumentAttachments.attach(execution)}"/>
             </bpmn:extensionElements>
             <bpmn:incoming>Flow_1</bpmn:incoming>
             <bpmn:outgoing>Flow_2</bpmn:outgoing>

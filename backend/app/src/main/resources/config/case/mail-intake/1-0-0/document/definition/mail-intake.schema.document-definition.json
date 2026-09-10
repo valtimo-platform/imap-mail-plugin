@@ -68,6 +68,20 @@
                 "null"
             ],
             "description": "Temporary resource storage id of the reply body"
+        },
+        "reviewOutcome": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "What the handler decided on the review-mail user task; written by the review-mail form"
+        },
+        "reviewNotes": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Free-text motivation for reviewOutcome"
         }
     }
 }

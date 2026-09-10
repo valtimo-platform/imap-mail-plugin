@@ -77,6 +77,31 @@ services:
       - ./fixtures:/fixtures:ro
     entrypoint: ["python", "/tools/mailctl.py"]
 
+  # S3, so that the mail body and the attachments can leave temporary resource storage and
+  # become related files on the case - which is what the Documents tab lists. Valtimo's
+  # s3-resource module talks to any S3-compatible store as long as `aws.s3.endpoint` is set;
+  # see the `aws.s3` block in config/application.yml.
+  #
+  # MinIO turns every top-level directory under /data into a bucket, so creating the
+  # directory in the entrypoint is enough - no separate `mc mb` init container.
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: imap-mail-dev-minio
+    ports:
+      - "${MINIO_HOST_PORT:-9000}:9000" # S3 API - what the application talks to
+      - "${MINIO_CONSOLE_HOST_PORT:-9001}:9001" # web console, minioadmin/minioadmin
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    entrypoint: ["sh", "-c", "mkdir -p /data/valtimo && exec minio server /data --console-address ':9001'"]
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
   valtimo-database:
     image: postgres:17.4
     container_name: imap-mail-dev-valtimo-database
@@ -169,3 +194,4 @@ services:
 volumes:
   valtimo-database-data:
   keycloak-database-data:
+  minio-data:

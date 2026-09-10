@@ -13,6 +13,11 @@ dependencies {
     implementation("com.ritense.valtimo:valtimo-dependencies:$valtimoVersion")
     implementation("com.ritense.valtimo:local-mail:$valtimoVersion")
 
+    // Not part of valtimo-dependencies, so it has to be asked for by name. Without it there
+    // is no ResourceService at all, `relatedFiles` on a document stays empty forever and the
+    // Documents tab has nothing to list. See the `aws.s3` block in config/application.yml.
+    implementation("com.ritense.valtimo:s3-resource:$valtimoVersion")
+
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.postgresql:postgresql")
     implementation("io.github.oshai:kotlin-logging:$kotlinLoggingVersion")
@@ -56,6 +61,14 @@ dockerCompose {
 tasks.bootRun {
     dependsOn("composeUp")
     systemProperty("spring.profiles.include", "dev")
+
+    // MinIO's root credentials, in the two system properties the AWS SDK's
+    // DefaultCredentialsProvider reads. They live here rather than in application.yml because
+    // the SDK never looks at Spring's environment - `aws.s3.*` there configures Valtimo, not
+    // the client. Hardcoding them is safe: they are the sandbox container's own credentials,
+    // set in docker-compose.yml a few lines apart from these.
+    systemProperty("aws.accessKeyId", System.getenv("MINIO_ROOT_USER") ?: "minioadmin")
+    systemProperty("aws.secretAccessKey", System.getenv("MINIO_ROOT_PASSWORD") ?: "minioadmin")
     val t = this
     doFirst {
         configureEnvironment(t)

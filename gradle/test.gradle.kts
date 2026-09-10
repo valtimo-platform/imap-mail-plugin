@@ -17,7 +17,10 @@
 tasks.named<Test>("test") {
     systemProperty("spring.profiles.include", "inttest,postgresql")
     useJUnitPlatform()
-    doLast {
-        "composeDownForced"
-    }
+
+    // No teardown hook here: `dockerCompose { isRequiredBy(tasks.test) }` in
+    // backend/plugin/build.gradle.kts already makes composeUp run before the tests and
+    // composeDown after them. This block used to hold `doLast { "composeDownForced" }`,
+    // which evaluated a string and discarded it - it looked like teardown but did nothing,
+    // and the real teardown was never missing.
 }

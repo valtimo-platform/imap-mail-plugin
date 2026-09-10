@@ -27,6 +27,12 @@
 #VALTIMO_DB_HOST_PORT=54360
 #KEYCLOAK_DB_HOST_PORT=54361
 
+# MinIO. Changing the API port also needs aws.s3.endpoint in
+# src/main/resources/config/application.yml, because the application reaches MinIO from the
+# host rather than over the compose network.
+#MINIO_HOST_PORT=9000
+#MINIO_CONSOLE_HOST_PORT=9001
+
 # Keycloak
 #KEYCLOAK_HOST_PORT=8081
 

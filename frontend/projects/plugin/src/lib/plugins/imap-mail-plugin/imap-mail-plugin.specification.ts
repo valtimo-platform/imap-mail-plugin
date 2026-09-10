@@ -30,7 +30,7 @@ const imapMailPluginSpecification: PluginSpecification = {
   pluginTranslations: {
     nl: {
       title: "IMAP mail",
-      description: "Een externe mailbox uitlezen via IMAP of POP3 en per e-mail een zaak starten.",
+      description: "Een externe mailbox uitlezen via IMAP of POP3 en per e-mail een dossier starten.",
       configurationTitle: "Configuratienaam",
 
       protocol: "Protocol",
@@ -79,7 +79,7 @@ const imapMailPluginSpecification: PluginSpecification = {
       subjectContainsTooltip: "Filtert op een deel van de onderwerpregel.",
       recipientContains: "Ontvanger bevat",
       recipientContainsTooltip:
-        "Filtert op een deel van een van de geadresseerden. Handig als één postbus meerdere aliassen ontvangt.",
+        "Filtert op een deel van een adres in de Aan-regel. Een e-mail die alleen in de cc staat of via een alias binnenkomt die niet in de Aan-regel staat, past niet.",
     },
     en: {
       title: "IMAP mail",
@@ -132,7 +132,7 @@ const imapMailPluginSpecification: PluginSpecification = {
       subjectContainsTooltip: "Filters on part of the subject line.",
       recipientContains: "Recipient contains",
       recipientContainsTooltip:
-        "Filters on part of any recipient. Useful when one mailbox receives several aliases.",
+        "Filters on part of a To address. A mail that only appears in Cc, or that arrives through an alias not in To, does not match.",
     },
   },
 };

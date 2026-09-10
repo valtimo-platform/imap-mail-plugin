@@ -120,8 +120,13 @@ open class ImapMailClient(
         val toPostProcess = mutableListOf<Message>()
 
         candidates.forEach { message ->
-            val identity = identityOf(message, folder, connection)
+            // Inside the try, not before it: deriving the identity reads from the server, so
+            // it can fail on the same malformed message the catch below exists for. Outside,
+            // one such message would abort the loop and take the rest of the mailbox's poll
+            // with it.
+            var identity: String? = null
             try {
+                identity = identityOf(message, folder, connection)
                 if (handler.handle(message, identity)) {
                     handled++
                     toPostProcess += message
@@ -135,7 +140,8 @@ open class ImapMailClient(
             } catch (e: Exception) {
                 failed++
                 logger.error(e) {
-                    "Failed to handle message '$identity' from ${connection.describe()}; leaving it on the server"
+                    "Failed to handle message '${identity ?: "identity could not be derived"}' from " +
+                        "${connection.describe()}; leaving it on the server"
                 }
             }
         }

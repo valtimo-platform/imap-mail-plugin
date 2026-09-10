@@ -22,6 +22,12 @@ package com.ritense.valtimoplugins.imapmail.domain
  *
  * All filters are matched case-insensitively and all are AND-ed. A link with no filters at
  * all matches every message in the mailbox, which is the common single-process setup.
+ *
+ * [recipientContains] matches the `To` addresses only, not `Cc` - despite the name. A mail
+ * that reaches the mailbox on `Cc`, or through an alias that never appears in `To`, is
+ * fetched and claimed but matches no link. `07-other-recipient.eml` in the sandbox is that
+ * case. Widening it to [FetchedMail.ccRecipients] would be a behaviour change, not a fix:
+ * splitting one mailbox across processes by address relies on `Cc` not counting.
  */
 data class ReceiveMailProperties(
     val senderContains: String? = null,

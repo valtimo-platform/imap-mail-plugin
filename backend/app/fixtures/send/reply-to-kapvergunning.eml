@@ -1,0 +1,22 @@
+X-Fixture-Envelope-To: zaakpost@valtimo.local
+From: Robin Bakker <robin.bakker@example.org>
+To: zaakpost+antwoord@valtimo.local
+Subject: Re: Aanvraag kapvergunning
+In-Reply-To: <fixture-02-html-alternative@example.org>
+References: <fixture-02-html-alternative@example.org>
+Message-ID: <fixture-reply-to-kapvergunning@example.org>
+Date: Wed, 9 Sep 2026 11:15:00 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+De boom staat op de erfgrens. De buren hebben schriftelijk ingestemd.
+
+The plain sibling of reply-to-request: same mechanism, different case. It exists so that
+`await-reply` can be triggered more than once without resetting anything, and so that the
+correlation is visibly selective rather than looking like "any reply resumes everything".
+
+`References` names <fixture-02-html-alternative@example.org>, so this resumes the case that
+02-html-alternative.eml started and leaves the cases from 03, 05 and 06 parked where they
+are. Send this one and reply-to-request in either order and watch two different cases move
+on.

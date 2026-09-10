@@ -1,0 +1,124 @@
+{
+    "display": "form",
+    "components": [
+        {
+            "key": "incomingMailPanel",
+            "type": "panel",
+            "title": "Incoming mail",
+            "input": false,
+            "collapsible": false,
+            "components": [
+                {
+                    "key": "mailSubject",
+                    "type": "textfield",
+                    "label": "Subject",
+                    "input": true,
+                    "disabled": true,
+                    "tableView": true
+                },
+                {
+                    "key": "mailSender",
+                    "type": "textfield",
+                    "label": "From",
+                    "input": true,
+                    "disabled": true,
+                    "tableView": true
+                },
+                {
+                    "key": "mailSenderName",
+                    "type": "textfield",
+                    "label": "Sender name",
+                    "input": true,
+                    "disabled": true,
+                    "tableView": false
+                },
+                {
+                    "key": "mailReceivedAt",
+                    "type": "textfield",
+                    "label": "Received at",
+                    "input": true,
+                    "disabled": true,
+                    "tableView": false
+                },
+                {
+                    "key": "mailAttachmentCount",
+                    "type": "number",
+                    "label": "Attachments",
+                    "input": true,
+                    "disabled": true,
+                    "tableView": false
+                }
+            ]
+        },
+        {
+            "key": "replyPanel",
+            "type": "panel",
+            "title": "Reply that resumed the case",
+            "input": false,
+            "collapsible": true,
+            "collapsed": false,
+            "components": [
+                {
+                    "key": "replySubject",
+                    "type": "textfield",
+                    "label": "Subject",
+                    "input": true,
+                    "disabled": true,
+                    "tableView": false
+                },
+                {
+                    "key": "replyReceivedAt",
+                    "type": "textfield",
+                    "label": "Received at",
+                    "input": true,
+                    "disabled": true,
+                    "tableView": false
+                }
+            ]
+        },
+        {
+            "key": "reviewOutcome",
+            "type": "select",
+            "label": "Decision",
+            "input": true,
+            "tableView": true,
+            "dataSrc": "values",
+            "data": {
+                "values": [
+                    {
+                        "label": "Approve",
+                        "value": "approved"
+                    },
+                    {
+                        "label": "Reject",
+                        "value": "rejected"
+                    },
+                    {
+                        "label": "More information needed",
+                        "value": "more-info"
+                    }
+                ]
+            },
+            "validate": {
+                "required": true
+            }
+        },
+        {
+            "key": "reviewNotes",
+            "type": "textarea",
+            "label": "Notes",
+            "input": true,
+            "rows": 4,
+            "tableView": false
+        },
+        {
+            "key": "submit",
+            "type": "button",
+            "label": "Complete review",
+            "theme": "primary",
+            "action": "submit",
+            "input": true,
+            "disableOnInvalid": true
+        }
+    ]
+}

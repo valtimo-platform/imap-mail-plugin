@@ -3,13 +3,21 @@
         "key": "summary",
         "name": "Mail",
         "type": "widgets",
-        "contentKey": "-"
+        "contentKey": "-",
+        "showTasks": true
     },
     {
         "name": "Progress",
         "key": "progress",
         "type": "standard",
-        "contentKey": "progress"
+        "contentKey": "progress",
+        "showTasks": true
+    },
+    {
+        "name": "Documents",
+        "key": "documents",
+        "type": "standard",
+        "contentKey": "documents"
     },
     {
         "name": "Audit",

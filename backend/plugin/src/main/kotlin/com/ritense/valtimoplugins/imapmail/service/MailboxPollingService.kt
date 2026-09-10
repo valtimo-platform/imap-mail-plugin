@@ -25,6 +25,7 @@ import com.ritense.valtimoplugins.imapmail.client.ImapMailClient
 import com.ritense.valtimoplugins.imapmail.plugin.ImapMailPlugin
 import com.ritense.valtimoplugins.imapmail.repository.ProcessedMailRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.transaction.annotation.Propagation
@@ -52,16 +53,26 @@ open class MailboxPollingService(
     private val retentionDays: Long,
 ) {
     /**
-     * Guards against overlapping runs.
+     * Guards against overlapping runs *within this JVM*.
      *
      * Spring's default scheduler is single-threaded, so today this cannot happen — but a
      * mailbox with a slow server can easily outlast a five-minute interval, and the day
      * someone configures a pool the overlap would double-fetch every message and rely
      * entirely on the claim table to sort it out.
+     *
+     * The `@SchedulerLock` below is the other half: this flag says nothing about the other
+     * nodes of a cluster, all of which run the same cron against the same mailbox.
      */
     private val running = AtomicBoolean(false)
 
+    /**
+     * `lockAtMostFor` is the deadline for a node that dies mid-poll: until it passes, no
+     * other node takes over. Generous relative to the default five-minute interval, because
+     * the cost of releasing early — two nodes in the same mailbox — is worse than the cost of
+     * a late release, which is a few skipped polls.
+     */
     @Scheduled(cron = "\${valtimo.imap-mail.poll-cron:0 */5 * * * *}")
+    @SchedulerLock(name = "imapMailPollMailboxes", lockAtLeastFor = "PT1S", lockAtMostFor = "PT10M")
     open fun pollMailboxes() {
         if (!running.compareAndSet(false, true)) {
             logger.info { "Skipping this mail poll: the previous one is still running" }
@@ -167,6 +178,7 @@ open class MailboxPollingService(
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Scheduled(cron = "\${valtimo.imap-mail.retention-cron:0 30 3 * * *}")
+    @SchedulerLock(name = "imapMailPruneProcessedMail", lockAtLeastFor = "PT5S", lockAtMostFor = "PT60M")
     open fun pruneProcessedMail() {
         val before = Instant.now().minus(retentionDays, ChronoUnit.DAYS)
         val deleted = processedMailRepository.deleteProcessedBefore(before)

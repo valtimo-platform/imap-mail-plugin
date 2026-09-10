@@ -1,9 +1,15 @@
 # Getting Started
 
-## Development
+Building and running this repository. For what the plugin does and how to configure it, go
+to the [handleiding](handleiding.md); for how it works, the
+[developer guide](developer-guide.md).
 
-Requirements: JDK 21 (see `.java-version`), Docker, and Node 20 or 22 — the frontend refuses
-to install on newer Node.
+## Requirements
+
+JDK 21 (see `.java-version`), Docker, and Node 20 or 22 — the frontend refuses to install on
+newer Node.
+
+## Building
 
 ```shell
 # Backend: unit tests. Starts a Postgres container via docker-compose.
@@ -13,15 +19,15 @@ to install on newer Node.
 cd frontend && npm install && npm run build
 ```
 
-The backend module is `backend/plugin`; `backend/app` is a sandbox Valtimo application for
-trying the plugin out locally. See [Example Application](example-application.md).
+`backend/plugin` is the module that ships. `backend/app` is a sandbox Valtimo application
+for trying the plugin out locally, and `frontend/projects/plugin` holds the configuration
+UI.
 
 ## Trying it out
 
 The plugin polls a mailbox on a schedule, so it needs a mailbox to talk to. The sandbox
-application in `backend/app` brings one: a
-[GreenMail](https://greenmail-mail-test.github.io/greenmail/) container preloaded with
-fixtures, and a Valtimo case that an incoming mail creates.
+brings one: a [GreenMail](https://greenmail-mail-test.github.io/greenmail/) container
+preloaded with deliberately awkward fixtures, and a case that an incoming mail creates.
 
 ```shell
 ./backend/app/dev.sh up
@@ -29,17 +35,16 @@ fixtures, and a Valtimo case that an incoming mail creates.
 ./backend/app/dev.sh send new-request     # watch a case appear
 ```
 
-See [backend/app/README.md](../backend/app/README.md) for what each fixture exercises, how to
-try the other post-processing actions and protocols, and how to reset between runs.
+See [Running the sandbox application](example-application.md) for the full startup sequence
+including the frontend, and [backend/app/README.md](../backend/app/README.md) for what each
+fixture exercises, the other post-processing actions and protocols, and how to reset between
+runs.
 
-To point the plugin at a mailbox of your own instead, note that a plain (non-TLS) server
-needs `startTlsEnable` set to `false`. To keep a mailbox from being touched at all on a
-particular node, set `valtimo.imap-mail.polling-enabled=false`.
+## Pointing it at a real mailbox
 
-## Configuration reference
-
-See the [plugin documentation](plugin.md) for every configuration property, the `receive-mail`
-process link, the process variables the plugin sets, and how duplicate detection works.
+Two things catch people out. A plain, non-TLS server needs `startTlsEnable` set to `false`.
+To keep a particular node from touching any mailbox, set
+`valtimo.imap-mail.polling-enabled=false`.
 
 For background on plugins in general, see the
 [Custom Plugin Definition](https://docs.valtimo.nl/features/plugins/plugins/custom-plugin-definition)

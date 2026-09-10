@@ -44,9 +44,26 @@ class ReceiveMailPropertiesTest : BaseTest() {
     }
 
     @Test
-    fun `should match when any recipient matches`() {
+    fun `should match any of the To recipients`() {
         assertThat(ReceiveMailProperties(recipientContains = "balie").matches(mail())).isTrue()
         assertThat(ReceiveMailProperties(recipientContains = "onbekend").matches(mail())).isFalse()
+    }
+
+    /**
+     * Pins the behaviour the field name does not suggest: `Cc` is parsed but never filtered
+     * on, so a mailbox that receives on `Cc` matches no link. `07-other-recipient.eml` in
+     * the sandbox is the same case end to end.
+     */
+    @Test
+    fun `should ignore Cc recipients`() {
+        val ccOnly =
+            mail().copy(
+                recipients = listOf("info@example.org"),
+                ccRecipients = listOf("balie@example.org"),
+            )
+
+        assertThat(ReceiveMailProperties(recipientContains = "balie").matches(ccOnly)).isFalse()
+        assertThat(ReceiveMailProperties(recipientContains = "info").matches(ccOnly)).isTrue()
     }
 
     @Test

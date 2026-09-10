@@ -40,6 +40,11 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-autoconfigure")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
 
+    // For @SchedulerLock on the poller. compileOnly like the Valtimo modules: a Valtimo
+    // application already has ShedLock on its classpath, because core's
+    // SchedulerAutoConfiguration builds the JdbcTemplateLockProvider the annotation needs.
+    compileOnly("net.javacrumbs.shedlock:shedlock-spring")
+
     // Brings in Jakarta Mail (Angus Mail), whose Store abstraction covers the IMAP and POP3
     // providers alike - which is why one plugin can serve both. Not compileOnly: unlike the
     // Valtimo modules, a mail provider is not already on a Valtimo application's classpath,

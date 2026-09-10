@@ -20,6 +20,7 @@ import {SelectItem} from "@valtimo/components";
 import {BehaviorSubject, combineLatest, Observable, Subscription, take} from "rxjs";
 import {
   AUTHENTICATION_MODES,
+  AuthenticationMode,
   DEFAULT_PORTS,
   ImapMailPluginConfig,
   MAIL_PROTOCOLS,
@@ -80,6 +81,22 @@ export class ImapMailPluginConfigurationComponent
   private readonly formValue$ = new BehaviorSubject<ImapMailPluginConfig | null>(null);
   private readonly valid$ = new BehaviorSubject<boolean>(false);
 
+  /**
+   * The authentication mode this configuration was opened with, or null when creating one.
+   *
+   * Valtimo strips secret properties out of the configuration it hands back
+   * (`PluginConfigurationDto`), so an existing configuration always prefills with an empty
+   * password and client secret. Submitting them empty is not destructive:
+   * `PluginConfiguration.updateProperties` keeps the stored value of a secret whose update
+   * value is empty. Empty therefore means "unchanged", and requiring a secret on edit would
+   * force the administrator to retype it to change anything at all.
+   *
+   * The mode is remembered rather than a bare "is editing" flag because the exemption only
+   * holds while the mode stays put: switching BASIC to XOAUTH2 means there is no stored
+   * client secret to keep, so that one has to be typed.
+   */
+  private prefilledAuthentication: AuthenticationMode | null = null;
+
   ngOnInit(): void {
     this.openSaveSubscription();
     this.openPrefillSubscription();
@@ -110,6 +127,7 @@ export class ImapMailPluginConfigurationComponent
   private openPrefillSubscription(): void {
     this.prefillSubscription = this.prefillConfiguration$?.subscribe(prefill => {
       if (prefill) {
+        this.prefilledAuthentication = prefill.authentication ?? AUTHENTICATION_MODES.BASIC;
         this.toggleConditionalFields(prefill);
       }
     });
@@ -130,10 +148,15 @@ export class ImapMailPluginConfigurationComponent
   }
 
   private handleValid(formValue: ImapMailPluginConfig): void {
-    const usesOAuth = formValue.authentication === AUTHENTICATION_MODES.XOAUTH2;
-    const credentialsPresent = usesOAuth
-      ? !!(formValue.oauthTokenUrl && formValue.oauthClientId && formValue.oauthClientSecret)
-      : !!formValue.password;
+    const authentication = formValue.authentication ?? AUTHENTICATION_MODES.BASIC;
+    const usesOAuth = authentication === AUTHENTICATION_MODES.XOAUTH2;
+
+    // See prefilledAuthentication: an unchanged secret comes back empty and stays stored.
+    const secretAlreadyStored = this.prefilledAuthentication === authentication;
+    const secretPresent =
+      secretAlreadyStored || !!(usesOAuth ? formValue.oauthClientSecret : formValue.password);
+    // The non-secret half of the OAuth block does prefill, so it is required either way.
+    const oauthFieldsPresent = !usesOAuth || !!(formValue.oauthTokenUrl && formValue.oauthClientId);
     const targetFolderPresent =
       formValue.postProcessAction !== POST_PROCESS_ACTIONS.MOVE || !!formValue.targetFolder;
 
@@ -141,7 +164,8 @@ export class ImapMailPluginConfigurationComponent
       formValue.configurationTitle &&
       formValue.host &&
       formValue.username &&
-      credentialsPresent &&
+      secretPresent &&
+      oauthFieldsPresent &&
       targetFolderPresent
     );
 

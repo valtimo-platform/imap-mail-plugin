@@ -8,6 +8,13 @@
     <logger name="com.ritense.valtimo" level="#logback.loglevel#"/>
     <logger name="com.ritense.valtimo.web.logging" level="DEBUG"/>
 
+    <!--
+      The sandbox's own beans at DEBUG, because watching them is the point of the module.
+      Without this, MailDocumentAttachments skipping a resource that another case already
+      took is silent, and the Documents tab just quietly differs between two cases.
+    -->
+    <logger name="com.ritense.plugin.sandbox" level="DEBUG"/>
+
     <root level="${logback.loglevel:-INFO}">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="VALTIMODBASYNC"/>

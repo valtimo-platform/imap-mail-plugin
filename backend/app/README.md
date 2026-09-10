@@ -46,6 +46,7 @@ and six cases appear at <http://localhost:8080>. Then drop a new mail in:
 | GreenMail | `localhost:3143` IMAP, `:3025` SMTP | also IMAPS 3993, POP3 3110, POP3S 3995, SMTPS 3465 |
 | GreenMail REST API | <http://localhost:8082/api/user> | users and server configuration |
 | Valtimo database | `localhost:54360` | `plugin` / `password`, database `plugin` |
+| MinIO | `localhost:9000`, console <http://localhost:9001> | bucket `valtimo`, `minioadmin` / `minioadmin` |
 | Keycloak | <http://localhost:8081/auth> | `admin` / `admin`, realm `valtimo` |
 
 The Valtimo application itself is **not** containerised - it runs on the host under
@@ -74,7 +75,9 @@ COMPOSE_PROFILES= ./gradlew :backend:app:bootRun    # so bootRun does not start 
 
 Everything else is movable: `cp ports.example .env` and edit. `dev.sh up` checks the
 ports first and says which one is taken rather than letting compose fail with a bare "Bind
-for 0.0.0.0:54320 failed".
+for 0.0.0.0:54320 failed". MinIO's 9000 is one of the movable ones, but moving it also
+means changing `aws.s3.endpoint` in `application.yml`, because the application reaches it
+from the host rather than over the compose network.
 
 ## The case
 
@@ -100,8 +103,21 @@ state the moment it is created and the reply path is testable without clicking a
 
 Execution listeners copy the `mail*` process variables into the document, because process
 variables are not visible in the case UI and are pruned along with history, while the
-document is the case file. The body and attachments stay out of both: they live in temporary
-resource storage and only their resource ids travel as variables.
+document is the case file. The body and attachments are not variables at all — they live in
+temporary resource storage and only their resource ids travel — so a last listener hands
+them to `MailDocumentAttachments`, which moves them into MinIO and links them to the
+document. That is what fills the Documents tab.
+
+`MailDocumentAttachments` is the sandbox's worked example of a mechanism the
+[developer guide](../../documentation/developer-guide.md#from-temporary-storage-to-the-case-file)
+describes in general, including the three things that bite when wiring it up. What is
+specific to this module is the infrastructure it needs: the `minio` container, the `aws.s3`
+block in `config/application.yml`, and
+`valtimo.resource.s3.temp-upload-listener.enabled: true`.
+
+One sandbox-specific quirk: `doc:/mailBodyResourceId` on the Mail tab becomes a stale id
+once the body has moved. It is left in place on purpose — showing what the plugin itself
+produced is the sandbox's job.
 
 ### Why the reply uses a different address
 
@@ -137,20 +153,34 @@ the `.eml` says on disk is exactly what the plugin has to deal with.
 | Fixture | Exercises |
 | --- | --- |
 | `new-request` | a plain new request, so you can watch poll → claim → parse → case happen live |
-| `reply-to-request` | resumes cases waiting at the receive task |
 | `duplicate-of-01` | same `Message-ID` as fixture 01, so the claim in `imap_mail_processed` makes it a duplicate |
+| `reply-to-request` | resumes the case fixture 01 started |
+| `reply-to-kapvergunning` | resumes the case fixture 02 started — the same mechanism aimed at a different case, so you can see that correlation is selective |
+| `reply-with-attachment` | resumes fixture 03's case *and* adds a file: the reply's own body and attachment join the Documents tab |
+| `reply-to-encoded` | resumes fixture 05's case with RFC 2047 encoded-words and a quoted-printable body, so the decoding is exercised on the resume path too |
+
+The four `reply-*` fixtures each name a different `Message-ID` in `References`, which is what
+decides the case they resume. Nothing replies to fixture 04 — it has no `Message-ID`, so no
+reply can ever correlate to it, and its case stays at `await-reply` forever. That is a real
+property of the plugin, not a gap in the fixtures.
 
 Adding one is just dropping an `.eml` in either directory. Inbox fixtures need
 `./dev.sh reset` to be picked up.
 
 ## Things worth watching
 
-**One reply resumes every waiting case.** `MailProcessStarter.signalWaitingExecutions` queries
-executions by process definition and activity id and signals all of them, so sending
-`reply-to-request` once resumes *all* the cases sitting at `await-reply`, not the one whose
-mail it is actually a reply to. The fixture carries `In-Reply-To` and `References` pointing at
-fixture 01, and neither is used for correlation. If a mailbox is meant to feed replies back
-into the specific case that sent the original, that correlation does not exist yet.
+**`reply-to-request` resumes only the case it answers.** The fixture's `In-Reply-To` and
+`References` point at fixture 01's `Message-ID`, and only executions whose remembered
+`mailMessageId` matches are signalled — the other cases parked at `await-reply` are left
+alone. Strip those two headers from a copy of the fixture to watch the negative case: it
+still matches the link's filter, resumes nothing, and is counted as skipped.
+
+Note that "the case it answers" can be more than one case here, which is an artefact of
+resetting. `./dev.sh unclaim` followed by `./dev.sh reset` re-delivers fixture 01 and
+creates a *second* case remembering the same `Message-ID`, so after two rounds the reply
+legitimately resumes both. Only the first of them gets the reply's body on its Documents
+tab — see `MailDocumentAttachments.metadataOrNull` for why. `./dev.sh reset --all` avoids
+the whole situation.
 
 **`AccessDeniedException: Unauthorized` when a user task appears.** Sending
 `reply-to-request` logs one of these per resumed case:
@@ -163,15 +193,11 @@ org.springframework.security.access.AccessDeniedException: Unauthorized
     at com.ritense.processdocument.sse.domain.listener.TaskUpdateListener.handle
 ```
 
-Nothing is rolled back - the cases are created and resumed correctly - but it is worth
-understanding. `IncomingMailHandler.handle` is annotated `@RunWithoutAuthorization`, and that
-covers the transaction. `TaskUpdateListener` is an SSE listener that runs *after commit*, by
-which point the authorization context is gone, and the poller thread has no authenticated
-user to fall back on. It only fires when a token reaches a **user task**, which is why the
-first poll is silent (cases stop at the receive task) and only the resume produces it.
-
-Any mail-driven process that reaches a user task will hit this, so it is not an artefact of
-this particular BPMN.
+Nothing is rolled back — the cases are created and resumed correctly. It fires only when a
+token reaches a **user task**, which is why the first poll is silent and only the resume
+produces it. The
+[developer guide](../../documentation/developer-guide.md#authorization) explains why; it is
+a property of any mail-driven process, not of this BPMN.
 
 **`MARK_READ` and the seen flag.** The sandbox configuration uses `MARK_READ`, so only unseen
 messages are candidates and the mail stays in the folder where you can look at it.

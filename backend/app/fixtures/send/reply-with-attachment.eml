@@ -1,0 +1,38 @@
+X-Fixture-Envelope-To: zaakpost@valtimo.local
+From: Sam Jansen <sam.jansen@example.org>
+To: zaakpost+antwoord@valtimo.local
+Subject: Re: Aanvraag omgevingsvergunning met bijlagen
+In-Reply-To: <fixture-03-attachments@example.org>
+References: <fixture-03-attachments@example.org>
+Message-ID: <fixture-reply-with-attachment@example.org>
+Date: Wed, 9 Sep 2026 16:05:00 +0200
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="reply-boundary"
+
+--reply-boundary
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Hierbij de gevraagde aanvullende gegevens.
+
+A reply that carries an attachment, which is the case a mail-driven process actually cares
+about: the supplementary information the citizen was asked for arrives as a file, not as
+prose.
+
+This resumes the case that 03-attachments.eml started, and MailDocumentAttachments runs on
+the receive task too, so the attachment below joins the two the original mail already put
+on the Documents tab. Watch the tab go from three files to five - the reply's body counts
+as one as well.
+
+One thing to notice if several cases are waiting on the same Message-ID: only the first of
+them gets these files. See MailDocumentAttachments.metadataOrNull.
+
+--reply-boundary
+Content-Type: text/plain; charset=UTF-8; name="aanvullende-gegevens.txt"
+Content-Disposition: attachment; filename="aanvullende-gegevens.txt"
+Content-Transfer-Encoding: base64
+
+S2FkYXN0cmFhbCBwZXJjZWVsOiBHRU0wMSBBIDEyMzQKT3BwZXJ2bGFrdGU6IDI0MCBtMgpBYW52
+dWxsZW5kZSB0b2VsaWNodGluZyBiaWogZGUgb21nZXZpbmdzdmVyZ3VubmluZy4K
+
+--reply-boundary--

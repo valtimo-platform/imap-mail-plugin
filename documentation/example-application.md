@@ -1,25 +1,23 @@
-# Example Application
+# Running the sandbox application
 
-This project also contains a working example application which is meant to showcase the plugin.
+`backend/app` is a throwaway Valtimo application for exercising the plugin locally. It
+deploys one case definition, `mail-intake`, whose process is started by an incoming mail and
+resumed by a reply, and it reads a fake mail server defined in the same module.
 
-It deploys one case definition, `mail-intake`, whose process is started by an incoming mail and
-resumed by a reply. The mailbox it reads is a fake mail server defined in the same module. See
-[backend/app/README.md](../backend/app/README.md) for the mailbox, the fixtures, and the
-process links that wire the two together.
+This page is the startup sequence, nothing more.
+[backend/app/README.md](../backend/app/README.md) is the sandbox's own documentation: what
+is running and on which ports, the case and its process links, what each fixture exercises,
+how to reset between runs, and the behaviour worth watching.
 
-## Running the example application
-
-All commands below should be run from the **project root** directory.
-
-### Prerequisites
+## Prerequisites
 
 - Java 21
 - [Docker (Desktop)](https://www.docker.com/products/docker-desktop/)
+- Node 20 or 22
 
-### Start docker
+## Start docker
 
-Make sure docker is running, then start the sandbox stack — mail server, database and
-Keycloak:
+From the repository root, with docker running:
 
 ```shell
 ./backend/app/dev.sh up
@@ -27,37 +25,35 @@ Keycloak:
 
 `./gradlew :backend:app:composeUp` starts the same stack, and `bootRun` depends on it, so
 this step is optional. `dev.sh` is the friendlier entry point: it waits for health, reports
-port conflicts in terms of what to do about them, and prints the mailbox contents.
+port conflicts in terms of what to do about them, and prints the mailbox contents. If a port
+is already taken — the GZAC stack claims several — it says so and tells you what to do; see
+the port conflicts section of the sandbox README.
 
-If another stack already serves a Valtimo realm on port 8081 — the GZAC stack does — reuse it
-rather than starting a second Keycloak:
+## Start the backend
 
-```shell
-./backend/app/dev.sh up --no-keycloak
-COMPOSE_PROFILES= ./gradlew :backend:app:bootRun
-```
-
-### Start backend
-
-By gradle script:
+From the repository root:
 
 ```shell
 ./gradlew :backend:app:bootRun
 ```
 
-### Start frontend
+## Start the frontend
+
+From `frontend/`, not the repository root — there is no package.json above it:
 
 ```shell
 nvm use 20
-npm run clean
 npm install
-npm run build
+npm run build     # builds the plugin library the application imports
 npm start
 ```
 
-### Keycloak users
+`npm run clean` first if a previous install is in a bad state; it removes `node_modules`,
+`dist`, `.angular` and the lockfile, so it is a repair step rather than part of the routine.
 
-The example application has a few test users that are preconfigured.
+## Keycloak users
+
+The sandbox realm has three preconfigured users:
 
 | Name         | Role           | Username  | Password  |
 |--------------|----------------|-----------|-----------|
@@ -67,7 +63,8 @@ The example application has a few test users that are preconfigured.
 
 ## Source code
 
-The source code is split up into two modules:
-
-1. [Frontend](/frontend)
-2. [Backend](/backend)
+| Module | |
+| --- | --- |
+| [backend/plugin](/backend/plugin) | the plugin; the only module that ships |
+| [backend/app](/backend/app) | this sandbox application |
+| [frontend](/frontend) | the Angular configuration UI, and a host application to run it in |

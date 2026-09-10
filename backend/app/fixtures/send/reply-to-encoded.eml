@@ -1,0 +1,27 @@
+X-Fixture-Envelope-To: zaakpost@valtimo.local
+From: =?utf-8?b?V8OtbGxlbWlqbiDDmC4gZGUgR3Jvb3QtxaBpbWnEhw==?= <willemijn.degroot@example.org>
+To: zaakpost+antwoord@valtimo.local
+Subject: =?utf-8?q?Re=3A_Aanvraag=3A_bezwaar_tegen_besluit_=E2=80=94_caf=C3=A9_?=
+ =?utf-8?q?=27t_Hoekje?=
+In-Reply-To: <fixture-05-encoded-headers@example.org>
+References: <fixture-05-encoded-headers@example.org>
+Message-ID: <fixture-reply-to-encoded@example.org>
+Date: Wed, 9 Sep 2026 14:40:00 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Aanvullend: de terrasvergunning liep tot 31 december. Zie ook =C2=A7 4 van het
+besluit. Met vriendelijke groet, W=C3=ADllemijn =C3=98. de Groot-=C5=A0imi=C4=87
+
+The reply path with everything encoded: RFC 2047 encoded-words in Subject and From, a
+folded Subject header, and a quoted-printable body carrying =C3=A9 =C3=B8 =C5=A1 =C2=A7
+=E2=80=94.
+
+05-encoded-headers.eml proves the parser decodes an incoming mail. This proves the same on
+resume, which is a different code path in one respect that matters: `mailSubject` and
+`mailSender` are overwritten on the waiting execution, so a resume that decodes badly
+corrupts a case that was already correct.
+
+Note that `References` is plain ASCII even here. Message-IDs are never encoded, which is
+what keeps correlation working regardless of what the rest of the headers do.

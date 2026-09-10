@@ -69,8 +69,26 @@ server:
     mime-types: text/html,text/xml,text/plain,text/css, application/javascript, application/json
     min-response-size: 1024
 
+# S3 for case documents. The endpoint points at the MinIO container in docker-compose.yml;
+# setting it is what makes the s3-resource module use path-style addressing and talk to
+# something other than real AWS. The credentials are not here - the AWS SDK reads them from
+# the aws.accessKeyId/aws.secretAccessKey system properties that bootRun sets.
+aws:
+  s3:
+    bucketName: valtimo
+    bucketRegion: eu-central-1
+    endpoint: http://localhost:9000
+
 valtimo:
   database: postgres
+  resource:
+    s3:
+      temp-upload-listener:
+        # Turns on TemporaryResourceSubmittedToS3EventListener, which is what moves a mail
+        # body or attachment out of temporary resource storage into S3 and links it to the
+        # case as a related file. Off by default in Valtimo; the sandbox needs it, because
+        # MailDocumentAttachments publishes exactly that event.
+        enabled: true
   app:
     scheme: http
   oauth:

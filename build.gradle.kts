@@ -4,7 +4,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.springframework.boot.gradle.tasks.bundling.BootJar
 
-val lalakiCentralVersion: String by project
 val valtimoVersion: String by project
 val ktlintVersion: String by project
 val ktlintToolVersion: String by project
@@ -76,7 +75,11 @@ subprojects {
         dependencies {
             compileOnly(platform("com.ritense.valtimo:valtimo-dependency-versions:$valtimoVersion"))
             testImplementation(platform("com.ritense.valtimo:valtimo-dependency-versions:$valtimoVersion"))
-            implementation("cn.lalaki.central:central:$lalakiCentralVersion")
+            // cn.lalaki.central is a publishing *plugin*, resolved through pluginManagement in
+            // settings.gradle.kts. It used to be declared here as an implementation dependency
+            // too, which put it in the published pom as a runtime dependency - every consumer
+            // of this plugin pulled a Gradle publishing tool at runtime. Nothing in the source
+            // references it.
         }
 
         allOpen {
@@ -91,7 +94,9 @@ subprojects {
         if (Os.isFamily(FAMILY_MAC)) {
             println("Configure docker compose for macOs")
             dockerCompose {
-                projectNamePrefix = "sample-plugin-"
+                // No projectNamePrefix: setProjectName below takes precedence over it, and
+                // each module overrides that again (imap-mail, imap-mail-dev), so the prefix
+                // was dead configuration left over from the plugin template.
                 setProjectName("${rootProject.name}-${project.name}")
                 executable = "/usr/local/bin/docker-compose"
                 dockerExecutable = "/usr/local/bin/docker"
@@ -108,6 +113,14 @@ subprojects {
 
         tasks.jar {
             enabled = true
+
+            // Spring Boot's plugin classifies the ordinary jar as `-plain`, because normally
+            // bootJar owns the empty classifier. bootJar is disabled here (these are
+            // libraries, not applications), so without this the publication has no main
+            // artifact at all: the pom comes out as <packaging>pom</packaging> and a Maven
+            // consumer of com.ritense.valtimoplugins:imap-mail gets no code.
+            archiveClassifier.set("")
+
             manifest {
                 pluginProperties["pluginArtifactId"]?.let { attributes["Implementation-Title"] = it }
                 pluginProperties["pluginVersion"]?.let { attributes["Implementation-Version"] = it }
