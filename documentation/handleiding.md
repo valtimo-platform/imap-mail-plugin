@@ -164,9 +164,13 @@ levert de gegevens aan; het proces bepaalt welke ervan in het dossier worden ove
 op welk tabblad ze verschijnen. Zie je een gegeven niet terug dat je wel verwacht, dan is
 dat een vraag aan de procesontwerper, niet een instelling in deze plugin.
 
-Twee grenzen zijn vast ingesteld: de tekst van een bericht mag maximaal 10 MB zijn en de
-bijlagen samen maximaal 25 MB. Een e-mail die daaroverheen gaat wordt niet verwerkt en
-blijft op de server staan.
+Drie grenzen zijn vast ingesteld: de tekst van een bericht mag maximaal 10 MB zijn, de
+bijlagen samen maximaal 25 MB, en er mogen er hoogstens 100 zijn. Een e-mail die
+daaroverheen gaat wordt geweigerd: er komt geen dossier van, er verschijnt een foutmelding in
+het logboek, en het bericht wordt daarna net zo afgehandeld als een verwerkt bericht — dus
+gemarkeerd als gelezen, verplaatst of verwijderd, afhankelijk van wat er is ingesteld. Het
+blijft bewust niet staan: bij elke volgende ronde zou het opnieuw worden opgehaald en opnieuw
+geweigerd, en zou het een plek innemen die een gewone e-mail nodig heeft.
 
 Dezelfde e-mail levert nooit twee dossiers op, ook niet als er meerdere Valtimo-servers
 tegelijk in dezelfde postbus kijken.

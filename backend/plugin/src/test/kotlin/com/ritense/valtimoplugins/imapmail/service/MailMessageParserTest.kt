@@ -19,6 +19,7 @@ package com.ritense.valtimoplugins.imapmail.service
 import com.ritense.resource.domain.MetadataType
 import com.ritense.resource.service.TemporaryResourceStorageService
 import com.ritense.valtimoplugins.imapmail.BaseTest
+import com.ritense.valtimoplugins.imapmail.domain.MailRejectedException
 import jakarta.mail.Session
 import jakarta.mail.internet.MimeMessage
 import org.assertj.core.api.Assertions.assertThat
@@ -250,7 +251,9 @@ class MailMessageParserTest : BaseTest() {
                 ),
                 "identity",
             )
-        }.isInstanceOf(IllegalStateException::class.java)
+            // Specifically a rejection, not just any failure: that type is what tells the
+            // poller to post-process the mail instead of retrying it on every poll forever.
+        }.isInstanceOf(MailRejectedException::class.java)
             .hasMessageContaining("exceed the maximum of 25 MB")
     }
 
@@ -269,8 +272,26 @@ class MailMessageParserTest : BaseTest() {
                 ),
                 "identity",
             )
-        }.isInstanceOf(IllegalStateException::class.java)
+        }.isInstanceOf(MailRejectedException::class.java)
             .hasMessageContaining("Mail body exceeds the maximum of 10 MB")
+    }
+
+    @Test
+    fun `should reject a mail carrying more attachments than the limit allows`() {
+        // A byte apiece, so the 25 MB cap never notices them. The count is the only thing
+        // standing between this mail and 500 resources in storage and 500 ids in a process
+        // variable.
+        assertThatThrownBy {
+            parser.parse(withAttachments(500), "identity")
+        }.isInstanceOf(MailRejectedException::class.java)
+            .hasMessageContaining("more than the maximum of 100 attachments")
+    }
+
+    @Test
+    fun `should accept a mail sitting just under the attachment limit`() {
+        val mail = parser.parse(withAttachments(100), "identity")
+
+        assertThat(mail.attachments).hasSize(100)
     }
 
     @Test
@@ -395,6 +416,29 @@ class MailMessageParserTest : BaseTest() {
 
     private fun base64(content: String): String =
         Base64.getEncoder().encodeToString(content.toByteArray(StandardCharsets.UTF_8))
+
+    /**
+     * A `multipart/mixed` mail carrying [count] one-byte attachments.
+     *
+     * Assembled rather than written as a raw literal: interpolating a multi-line value into a
+     * `trimIndent` block leaves the surrounding lines indented, which silently turns the
+     * headers into body text and yields a mail with no parts at all.
+     */
+    private fun withAttachments(count: Int): MimeMessage =
+        message(
+            buildString {
+                append("From: jan@example.com\r\n")
+                append("Subject: Bijlagen\r\n")
+                append("Content-Type: multipart/mixed; boundary=\"b1\"\r\n\r\n")
+                repeat(count) { index ->
+                    append("--b1\r\n")
+                    append("Content-Type: application/octet-stream\r\n")
+                    append("Content-Disposition: attachment; filename=\"deel-${index + 1}.bin\"\r\n\r\n")
+                    append("x\r\n")
+                }
+                append("--b1--\r\n")
+            },
+        )
 
     /** Parses a raw RFC 5322 message, so no mail server is needed. */
     private fun message(raw: String): MimeMessage =

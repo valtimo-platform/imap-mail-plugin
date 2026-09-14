@@ -21,6 +21,7 @@ import com.ritense.resource.service.TemporaryResourceStorageService
 import com.ritense.valtimo.contract.annotation.SkipComponentScan
 import com.ritense.valtimoplugins.imapmail.domain.FetchedMail
 import com.ritense.valtimoplugins.imapmail.domain.MailAttachment
+import com.ritense.valtimoplugins.imapmail.domain.MailRejectedException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.mail.Message
 import jakarta.mail.Multipart
@@ -43,9 +44,12 @@ import java.nio.charset.StandardCharsets
  * Must be called while the message's folder is still open — see `ImapMailClient.poll`.
  *
  * Nothing here trusts the message. Inbound mail is attacker-controlled input: filenames may
- * try to traverse directories, a part may claim a size it does not have, and a nested
- * multipart may be deep enough to exhaust the stack. Each of those is bounded below rather
- * than assumed away.
+ * try to traverse directories, a part may claim a size it does not have, a multipart may
+ * hold far more parts than any real mail, and a nested multipart may be deep enough to
+ * exhaust the stack. Each of those is bounded below rather than assumed away.
+ *
+ * A mail that breaches one of those bounds is refused with a [MailRejectedException], which
+ * the poller treats differently from an ordinary read failure — see that class.
  */
 @SkipComponentScan
 @Component
@@ -173,7 +177,7 @@ class MailMessageParser(
                 readBounded(part, MAX_BODY_BYTES) {
                     "Mail body exceeds the maximum of ${MAX_BODY_BYTES / BYTES_PER_MB} MB"
                 }
-            } catch (e: MailTooLargeException) {
+            } catch (e: MailRejectedException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Could not read a text part of type '${contentTypeOf(part)}'; ignoring it" }
@@ -206,7 +210,7 @@ class MailMessageParser(
             while (true) {
                 val read = input.read(buffer)
                 if (read < 0) break
-                if (collected.size() + read > limit) throw MailTooLargeException(message())
+                if (collected.size() + read > limit) throw MailRejectedException(message())
                 collected.write(buffer, 0, read)
             }
         }
@@ -237,6 +241,15 @@ class MailMessageParser(
         part: Part,
         collected: CollectedParts,
     ) {
+        // Counted as well as weighed. The byte cap below says nothing about how many parts a
+        // multipart may declare, and an empty part costs nothing against it - so without this
+        // a mail of a hundred thousand zero-byte attachments would pass the size check while
+        // writing a hundred thousand resources to storage and handing the process a variable
+        // of a hundred thousand ids.
+        if (collected.attachments.size >= MAX_ATTACHMENTS) {
+            throw MailRejectedException("Mail has more than the maximum of $MAX_ATTACHMENTS attachments")
+        }
+
         // The cap is on the mail as a whole, so each attachment may only use what its
         // predecessors left; a first attachment just under the limit must not let a second
         // one through.
@@ -245,7 +258,7 @@ class MailMessageParser(
                 readBounded(part, MAX_TOTAL_ATTACHMENT_BYTES - collected.attachmentBytes) {
                     "Mail attachments exceed the maximum of ${MAX_TOTAL_ATTACHMENT_BYTES / BYTES_PER_MB} MB"
                 }
-            } catch (e: MailTooLargeException) {
+            } catch (e: MailRejectedException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Could not read an attachment; skipping it" }
@@ -357,17 +370,6 @@ class MailMessageParser(
         val isHtml: Boolean,
     )
 
-    /**
-     * Thrown when a mail is too big to accept.
-     *
-     * A type of its own so that [storeAttachment] and [readText] can let it through while
-     * still swallowing the ordinary read failures around it — a malformed part is worth
-     * skipping, an oversized one is not.
-     */
-    private class MailTooLargeException(
-        message: String,
-    ) : IllegalStateException(message)
-
     private companion object {
         private val logger = KotlinLogging.logger {}
 
@@ -381,5 +383,8 @@ class MailMessageParser(
         private const val BYTES_PER_MB = 1_000_000
         private const val MAX_TOTAL_ATTACHMENT_BYTES = 25 * BYTES_PER_MB
         private const val MAX_BODY_BYTES = 10 * BYTES_PER_MB
+
+        /** Well above what a real mail carries, low enough to stay a bound. */
+        private const val MAX_ATTACHMENTS = 100
     }
 }
