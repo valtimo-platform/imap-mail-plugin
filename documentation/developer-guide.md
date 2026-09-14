@@ -157,11 +157,24 @@ each of these is a bound rather than an assumption:
 | `MAX_MULTIPART_DEPTH` | 10 | A nested multipart deep enough to exhaust the stack. |
 | `MAX_BODY_BYTES` | 10 MB | A body that claims one size and delivers another. |
 | `MAX_TOTAL_ATTACHMENT_BYTES` | 25 MB | The same, across all attachments together. |
+| `MAX_ATTACHMENTS` | 100 | A multipart declaring far more parts than any real mail. |
 | `MAX_FILENAME_LENGTH` | 200 | A filename long enough to break storage. |
 
 The two size caps are enforced *while reading* by `readBounded`, so an oversized mail is
-refused rather than first pulled into memory. Exceeding either fails the mail, which leaves
-it on the server.
+refused rather than first pulled into memory. `MAX_ATTACHMENTS` is the count that the byte
+cap cannot express: an empty part weighs nothing against 25 MB, so without it a mail of a
+hundred thousand zero-byte attachments would pass the size check while writing that many
+resources to storage and handing the process a variable of that many ids.
+
+**Refusal is not failure.** Breaching any of these throws `MailRejectedException`, which
+`ImapMailClient` catches separately from an ordinary exception. An ordinary failure — a
+dropped connection, a database hiccup — leaves the message on the server, because the next
+poll may well succeed. A refusal has no such prospect: the mail will be over the same limit
+in five minutes. So a refused mail is logged at error level and post-processed like a handled
+one. Leaving it would mean re-downloading it on every poll for as long as it sat in the
+folder, while holding one of the `maxMessagesPerPoll` slots — and since candidates are taken
+oldest first, enough refused mail at the head of a folder would stop new mail from being
+reached at all. `PollResult.rejected` counts them, separately from `failed`.
 
 **Body selection.** HTML wins over plain text when both are present, which is the
 `multipart/alternative` case; `mailBodyIsHtml` reports which was chosen. A mail with neither

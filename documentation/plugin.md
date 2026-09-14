@@ -15,7 +15,7 @@ defaults of everything it exposes. It deliberately explains as little as possibl
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:imap-mail:0.0.1")
+    implementation("com.ritense.valtimoplugins:imap-mail:0.0.2")
 }
 ```
 
@@ -24,7 +24,7 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/imap-mail-plugin": "0.0.1"
+    "@valtimo-plugins/imap-mail-plugin": "0.0.2"
   }
 }
 ```
@@ -81,7 +81,7 @@ case; every node just polls independently.
 | `oauthClientSecret`  | secret  | With `XOAUTH2`       |                                             |                                                                                   |
 | `oauthScope`         | string  | No                   | `https://outlook.office365.com/.default`    | Client-credentials scope.                                                          |
 | `folder`             | string  | No                   | `INBOX`                                     | IMAP only; POP3 accepts `INBOX` alone.                                            |
-| `startTlsEnable`     | boolean | No                   | `true`                                      | Requires STARTTLS on `imap`/`pop3`. Ignored for the implicit-TLS protocols.       |
+| `startTlsEnable`     | boolean | No                   | `true`                                      | Requires STARTTLS on `imap`/`pop3`. Ignored for the implicit-TLS protocols. Switching it off on those protocols logs a warning on every poll: credentials and message content then cross the network unencrypted. |
 | `maxMessagesPerPoll` | number  | No                   | `25`                                        | Messages handled per poll; the rest follow next time.                             |
 | `postProcessAction`  | string  | No                   | `MARK_READ`                                 | `MARK_READ`, `MOVE`, `DELETE` or `NONE`.                                          |
 | `targetFolder`       | string  | With `MOVE`          |                                             | Must differ from `folder`.                                                        |
@@ -145,10 +145,14 @@ Set on the process instance the plugin starts or resumes.
 |-------|-------|
 | Body size | 10 MB |
 | Attachments per mail, combined | 25 MB |
+| Attachments per mail, count | 100 |
 | Multipart nesting depth | 10 |
 | Attachment filename length | 200 characters |
 
-Exceeding a size limit fails the mail, which leaves it on the server.
+Exceeding a size or count limit refuses the mail: no case is created, the failure is logged
+at error level, and the mail is post-processed (marked read, moved or deleted) like a handled
+one. It is deliberately not left on the server — it would be refused identically on every
+later poll while occupying one of the `maxMessagesPerPoll` slots.
 
 ## Database
 

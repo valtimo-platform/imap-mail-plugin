@@ -161,7 +161,7 @@ open class MailboxPollingService(
         if (result.fetched > 0) {
             logger.info {
                 "Polled ${connection.describe()}: ${result.fetched} fetched, ${result.handled} started, " +
-                    "${result.skipped} skipped, ${result.failed} failed"
+                    "${result.skipped} skipped, ${result.rejected} refused, ${result.failed} failed"
             }
         }
     }

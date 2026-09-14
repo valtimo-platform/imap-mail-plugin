@@ -18,6 +18,8 @@ package com.ritense.valtimoplugins.imapmail.client
 
 import com.ritense.valtimoplugins.imapmail.domain.AuthenticationMode
 import com.ritense.valtimoplugins.imapmail.domain.ImapMailConnectionProperties
+import com.ritense.valtimoplugins.imapmail.domain.MailProtocol
+import com.ritense.valtimoplugins.imapmail.domain.MailRejectedException
 import com.ritense.valtimoplugins.imapmail.domain.PostProcessAction
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.mail.AuthenticationFailedException
@@ -53,7 +55,9 @@ open class ImapMailClient(
      * Failures are deliberately asymmetric. A connection or authentication failure aborts
      * the whole poll — nothing useful can follow it. A failure on a single message is
      * logged and counted, and the poll continues with the next one, so a single malformed
-     * mail cannot wedge the mailbox forever.
+     * mail cannot wedge the mailbox forever. A message the handler *refuses* — over a size
+     * or count limit, and so hopeless on every future poll too — is additionally
+     * post-processed, which is what keeps it out of the next poll's candidate set.
      */
     open fun poll(
         connection: ImapMailConnectionProperties,
@@ -116,6 +120,7 @@ open class ImapMailClient(
 
         var handled = 0
         var skipped = 0
+        var rejected = 0
         var failed = 0
         val toPostProcess = mutableListOf<Message>()
 
@@ -137,6 +142,18 @@ open class ImapMailClient(
                     // re-parsing it on every single poll from here on.
                     toPostProcess += message
                 }
+            } catch (e: MailRejectedException) {
+                // Post-processed rather than left behind, unlike the failures below. This mail
+                // is over a hard limit, so every future poll would refuse it identically while
+                // it kept a place in the candidate set - and the candidates are taken oldest
+                // first, so enough refused mail at the head of a folder would stop new mail
+                // from ever being reached. See MailRejectedException.
+                rejected++
+                logger.error(e) {
+                    "Refusing message '${identity ?: "identity could not be derived"}' from " +
+                        "${connection.describe()}; no process was started for it and it will not be retried"
+                }
+                toPostProcess += message
             } catch (e: Exception) {
                 failed++
                 logger.error(e) {
@@ -148,7 +165,13 @@ open class ImapMailClient(
 
         postProcess(toPostProcess, folder, connection)
 
-        return PollResult(fetched = candidates.size, handled = handled, skipped = skipped, failed = failed)
+        return PollResult(
+            fetched = candidates.size,
+            handled = handled,
+            skipped = skipped,
+            rejected = rejected,
+            failed = failed,
+        )
     }
 
     /**
@@ -301,6 +324,18 @@ open class ImapMailClient(
                     // Without this, a server that does not offer STARTTLS is silently spoken
                     // to in the clear - credentials included.
                     this["mail.$scheme.starttls.required"] = "true"
+                } else {
+                    // Allowed, because a local test server has no certificate and the sandbox
+                    // relies on that. Not allowed to be silent, though: this is the one
+                    // combination where the password and every message body cross the network
+                    // unencrypted, and a configuration that arrived through the API never
+                    // passed the admin UI's warning about it.
+                    logger.warn {
+                        "Transport encryption is off for ${connection.describe()}: '$scheme' is a plaintext " +
+                            "protocol and STARTTLS is disabled, so credentials and message content travel " +
+                            "unencrypted. Use ${MailProtocol.IMAPS.schemeName}/${MailProtocol.POP3S.schemeName}, " +
+                            "or switch STARTTLS on."
+                    }
                 }
 
                 // Verify the server certificate against the JVM trust store. This is the
@@ -368,7 +403,11 @@ open class ImapMailClient(
      *
      * Returns `true` when a process was started for it, `false` when it was knowingly
      * skipped (a duplicate, or matching no process link). Either way the message gets
-     * post-processed; throwing is what leaves it on the server for the next poll.
+     * post-processed.
+     *
+     * Throwing is what leaves it on the server for the next poll — except for a
+     * [MailRejectedException], which says the mail is over a hard limit and would be refused
+     * again next time, so it is post-processed rather than retried forever.
      */
     fun interface MailHandler {
         fun handle(
@@ -381,6 +420,8 @@ open class ImapMailClient(
         val fetched: Int = 0,
         val handled: Int = 0,
         val skipped: Int = 0,
+        /** Refused outright and post-processed anyway; see [MailRejectedException]. */
+        val rejected: Int = 0,
         val failed: Int = 0,
     )
 
