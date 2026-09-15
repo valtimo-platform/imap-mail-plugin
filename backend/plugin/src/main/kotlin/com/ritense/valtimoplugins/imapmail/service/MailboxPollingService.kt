@@ -71,7 +71,7 @@ open class MailboxPollingService(
      * the cost of releasing early — two nodes in the same mailbox — is worse than the cost of
      * a late release, which is a few skipped polls.
      */
-    @Scheduled(cron = "\${valtimo.imap-mail.poll-cron:0 */5 * * * *}")
+    @Scheduled(cron = "\${valtimo.imap-mail.poll-cron:0 * * * * *}")
     @SchedulerLock(name = "imapMailPollMailboxes", lockAtLeastFor = "PT1S", lockAtMostFor = "PT10M")
     open fun pollMailboxes() {
         if (!running.compareAndSet(false, true)) {
