@@ -4,7 +4,7 @@ Overzicht van wijzigingen per versie van de IMAP mail plugin.
 
 ## 0.0.4
 
-- De procesvariabele 'attachments' is nu beschikbaar als map, met properties fileName, contentType, sizeInBytes en resourceId.
+- De procesvariabele 'attachments' is nu beschikbaar als lijst van objecten, met properties fileName, contentType, sizeInBytes en resourceId.
 - Default interval voor het pollen is nu 1 minuut.
 
 ## 0.0.3
