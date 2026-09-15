@@ -62,15 +62,18 @@ class MailMessageParser(
     ): FetchedMail {
         val parts = collectParts(message)
 
+        // Both formats are kept when the mail carried both: which one a process wants is not
+        // something this class can know. A reply quotes the HTML, a text analysis reads the
+        // plain part, and re-deriving the one from the other downstream loses either the
+        // markup or the sender's own line breaks.
         val body = parts.body()
+        val bodyTextResourceId = parts.plainText()?.let { storeBody(it, isHtml = false) }
+        val bodyHtmlResourceId = parts.html()?.let { storeBody(it, isHtml = true) }
         val bodyResourceId =
-            storageService.store(
-                ByteArrayInputStream(body.content.toByteArray(StandardCharsets.UTF_8)),
-                mapOf(
-                    MetadataType.FILE_NAME.key to if (body.isHtml) "mail-body.html" else "mail-body.txt",
-                    MetadataType.CONTENT_TYPE.key to if (body.isHtml) "text/html" else "text/plain",
-                ),
-            )
+            (if (body.isHtml) bodyHtmlResourceId else bodyTextResourceId)
+                // Only an empty mail reaches this: it has neither variant, and still gets a
+                // body resource so downstream expressions never have to null-check it.
+                ?: storeBody(body.content, isHtml = body.isHtml)
 
         return FetchedMail(
             identity = identity,
@@ -85,9 +88,23 @@ class MailMessageParser(
             references = threadReferences(message),
             bodyResourceId = bodyResourceId,
             bodyIsHtml = body.isHtml,
+            bodyTextResourceId = bodyTextResourceId,
+            bodyHtmlResourceId = bodyHtmlResourceId,
             attachments = parts.attachments,
         )
     }
+
+    private fun storeBody(
+        content: String,
+        isHtml: Boolean,
+    ): String =
+        storageService.store(
+            ByteArrayInputStream(content.toByteArray(StandardCharsets.UTF_8)),
+            mapOf(
+                MetadataType.FILE_NAME.key to if (isHtml) "mail-body.html" else "mail-body.txt",
+                MetadataType.CONTENT_TYPE.key to if (isHtml) "text/html" else "text/plain",
+            ),
+        )
 
     /**
      * Walks the MIME tree once, collecting body candidates and storing attachments.
@@ -343,19 +360,25 @@ class MailMessageParser(
         var attachmentBytes: Int = 0
         val attachments: MutableList<MailAttachment> = mutableListOf()
 
+        /** The plain text the mail carried, if it carried any that was not blank. */
+        fun plainText(): String? = plainBody?.takeIf { it.isNotBlank() }
+
+        /** The HTML the mail carried, if it carried any that was not blank. */
+        fun html(): String? = htmlBody?.takeIf { it.isNotBlank() }
+
         /**
-         * Picks the body to hand to the process.
+         * Picks the body that [FetchedMail.bodyResourceId] points at.
          *
-         * HTML wins over plain text when the two are `multipart/alternative` siblings, since
-         * there they are the same content and the HTML is what the sender actually wrote.
-         * Anywhere else plain text wins: siblings outside an `alternative` are separate
-         * content, and the HTML is as likely to be a signature or a disclaimer as the
-         * message. An empty mail still yields a body resource, so downstream expressions
-         * never have to null-check it.
+         * Both formats are stored when both are there, but one of them has to be the body a
+         * process gets without asking. HTML wins over plain text when the two are
+         * `multipart/alternative` siblings, since there they are the same content and the
+         * HTML is what the sender actually wrote. Anywhere else plain text wins: siblings
+         * outside an `alternative` are separate content, and the HTML is as likely to be a
+         * signature or a disclaimer as the message.
          */
         fun body(): Body {
-            val html = htmlBody?.takeIf { it.isNotBlank() }
-            val plain = plainBody?.takeIf { it.isNotBlank() }
+            val html = html()
+            val plain = plainText()
             return when {
                 html != null && (preferHtml || plain == null) -> Body(html, isHtml = true)
                 plain != null -> Body(plain, isHtml = false)

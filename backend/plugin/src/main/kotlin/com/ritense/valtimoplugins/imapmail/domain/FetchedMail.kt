@@ -48,9 +48,19 @@ data class FetchedMail(
      * id in its `References` chain. See `MailProcessStarter.signalWaitingExecutions`.
      */
     val references: List<String>,
-    /** Resource id of the body, HTML when the mail had an HTML part, otherwise plain text. */
+    /**
+     * Resource id of the body to use when a process does not care which format it gets.
+     *
+     * Points at [bodyHtmlResourceId] or [bodyTextResourceId] — see `CollectedParts.body` for
+     * which of the two wins. An empty mail has neither, and gets an empty text resource of
+     * its own, so this is never null.
+     */
     val bodyResourceId: String,
     val bodyIsHtml: Boolean,
+    /** Resource id of the plain text body, when the mail carried a non-blank one. */
+    val bodyTextResourceId: String?,
+    /** Resource id of the HTML body, when the mail carried a non-blank one. */
+    val bodyHtmlResourceId: String?,
     val attachments: List<MailAttachment>,
 ) {
     /**
@@ -65,6 +75,10 @@ data class FetchedMail(
             put("mailIdentity", identity)
             put("mailBodyResourceId", bodyResourceId)
             put("mailBodyIsHtml", bodyIsHtml)
+            // Left unset rather than set to null when the mail had no such part: an unset
+            // variable is what a BPMN expression can test for, where a null one throws.
+            bodyTextResourceId?.let { put("mailBodyTextResourceId", it) }
+            bodyHtmlResourceId?.let { put("mailBodyHtmlResourceId", it) }
             put("mailAttachmentResourceIds", attachments.map { it.resourceId })
             put("mailAttachmentCount", attachments.size)
             put("mailRecipients", recipients)

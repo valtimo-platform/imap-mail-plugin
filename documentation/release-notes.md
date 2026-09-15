@@ -2,6 +2,17 @@
 
 Overzicht van wijzigingen per versie van de IMAP mail plugin.
 
+## 0.0.3
+
+- Een e-mail met zowel een platte-tekst- als een HTML-versie wordt voortaan in beide
+  formaten opgeslagen, via de nieuwe procesvariabelen `mailBodyTextResourceId` en
+  `mailBodyHtmlResourceId`. Eerder werd alleen de gekozen versie bewaard en was de andere
+  verloren; welke van de twee een proces nodig heeft — de HTML voor een antwoord, de platte
+  tekst voor analyse — kan de plugin niet weten. Een variabele wordt alleen gezet als de
+  e-mail dat formaat had.
+- `mailBodyResourceId` en `mailBodyIsHtml` blijven ongewijzigd: die wijzen nog steeds naar de
+  versie die de plugin zelf zou kiezen. Bestaande processen hoeven niets aan te passen.
+
 ## 0.0.2
 
 Correcties, geen wijzigingen in instellingen of procesvariabelen:
