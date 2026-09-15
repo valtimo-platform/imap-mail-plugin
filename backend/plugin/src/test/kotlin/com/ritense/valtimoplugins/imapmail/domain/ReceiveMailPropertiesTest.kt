@@ -102,6 +102,8 @@ class ReceiveMailPropertiesTest : BaseTest() {
             references = emptyList(),
             bodyResourceId = "resource-1",
             bodyIsHtml = false,
+            bodyTextResourceId = "resource-1",
+            bodyHtmlResourceId = null,
             attachments = emptyList(),
         )
 }

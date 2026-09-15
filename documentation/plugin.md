@@ -136,8 +136,16 @@ Set on the process instance the plugin starts or resumes.
 | `mailSentAt`                | string       | ISO-8601 instant, when the mail carries one.                     |
 | `mailBodyResourceId`        | string       | Resource id of the body in temporary resource storage.           |
 | `mailBodyIsHtml`            | boolean      | Whether that body is HTML.                                       |
+| `mailBodyTextResourceId`    | string       | Resource id of the plain text body, when the mail carried one.   |
+| `mailBodyHtmlResourceId`    | string       | Resource id of the HTML body, when the mail carried one.         |
 | `mailAttachmentResourceIds` | list<string> | Resource ids of the attachments.                                |
 | `mailAttachmentCount`       | number       | Number of attachments.                                          |
+
+A mail that carries both a plain text and an HTML part is stored in both formats, so a
+process can pick the one it needs. `mailBodyResourceId` points at one of the two — the HTML
+one when the parts are `multipart/alternative` siblings, the plain text one otherwise — and
+is always set. The format-specific variables are only set when the mail carried that format;
+an empty mail has neither, and `mailBodyResourceId` then points at an empty text resource.
 
 ## Limits
 

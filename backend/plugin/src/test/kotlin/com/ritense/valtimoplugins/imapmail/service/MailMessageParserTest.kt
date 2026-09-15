@@ -119,6 +119,68 @@ class MailMessageParserTest : BaseTest() {
     }
 
     @Test
+    fun `should store both formats when the mail carries both`() {
+        val mail =
+            parser.parse(
+                message(
+                    """
+                    From: jan@example.com
+                    Subject: Beide formaten
+                    Content-Type: multipart/alternative; boundary="b1"
+
+                    --b1
+                    Content-Type: text/plain; charset=UTF-8
+
+                    platte tekst
+                    --b1
+                    Content-Type: text/html; charset=UTF-8
+
+                    <p>rijke tekst</p>
+                    --b1--
+                    """.trimIndent(),
+                ),
+                "identity",
+            )
+
+        assertThat(bodyOf(mail.bodyTextResourceId!!)).contains("platte tekst")
+        assertThat(metadata[mail.bodyTextResourceId]?.get(MetadataType.CONTENT_TYPE.key)).isEqualTo("text/plain")
+        assertThat(metadata[mail.bodyTextResourceId]?.get(MetadataType.FILE_NAME.key)).isEqualTo("mail-body.txt")
+
+        assertThat(bodyOf(mail.bodyHtmlResourceId!!)).contains("<p>rijke tekst</p>")
+        assertThat(metadata[mail.bodyHtmlResourceId]?.get(MetadataType.CONTENT_TYPE.key)).isEqualTo("text/html")
+
+        // The preferred body is one of the two, not a third copy of the same content.
+        assertThat(mail.bodyResourceId).isEqualTo(mail.bodyHtmlResourceId)
+        assertThat(stored).hasSize(2)
+
+        assertThat(mail.toProcessVariables())
+            .containsEntry("mailBodyTextResourceId", mail.bodyTextResourceId)
+            .containsEntry("mailBodyHtmlResourceId", mail.bodyHtmlResourceId)
+    }
+
+    @Test
+    fun `should leave the other format unset when the mail carries one`() {
+        val mail =
+            parser.parse(
+                message(
+                    """
+                    From: jan@example.com
+                    Subject: Alleen html
+                    Content-Type: text/html; charset=UTF-8
+
+                    <p>alleen rijke tekst</p>
+                    """.trimIndent(),
+                ),
+                "identity",
+            )
+
+        assertThat(mail.bodyIsHtml).isTrue()
+        assertThat(mail.bodyResourceId).isEqualTo(mail.bodyHtmlResourceId)
+        assertThat(mail.bodyTextResourceId).isNull()
+        assertThat(mail.toProcessVariables()).doesNotContainKey("mailBodyTextResourceId")
+    }
+
+    @Test
     fun `should store an attachment separately from the body`() {
         val mail =
             parser.parse(
@@ -379,6 +441,8 @@ class MailMessageParserTest : BaseTest() {
         assertThat(mail.bodyResourceId).isNotBlank()
         assertThat(bodyOf(mail.bodyResourceId)).isEmpty()
         assertThat(mail.bodyIsHtml).isFalse()
+        assertThat(mail.bodyTextResourceId).isNull()
+        assertThat(mail.bodyHtmlResourceId).isNull()
     }
 
     @Test
