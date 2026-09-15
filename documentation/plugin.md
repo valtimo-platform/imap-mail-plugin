@@ -15,7 +15,7 @@ defaults of everything it exposes. It deliberately explains as little as possibl
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:imap-mail:0.0.2")
+    implementation("com.ritense.valtimoplugins:imap-mail:0.0.3")
 }
 ```
 
@@ -24,7 +24,7 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/imap-mail-plugin": "0.0.2"
+    "@valtimo-plugins/imap-mail-plugin": "0.0.3"
   }
 }
 ```
