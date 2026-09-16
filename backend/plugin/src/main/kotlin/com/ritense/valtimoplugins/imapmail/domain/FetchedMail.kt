@@ -79,6 +79,7 @@ data class FetchedMail(
             // variable is what a BPMN expression can test for, where a null one throws.
             bodyTextResourceId?.let { put("mailBodyTextResourceId", it) }
             bodyHtmlResourceId?.let { put("mailBodyHtmlResourceId", it) }
+            put("attachments", attachments)
             put("mailAttachmentResourceIds", attachments.map { it.resourceId })
             put("mailAttachmentCount", attachments.size)
             put("mailRecipients", recipients)
