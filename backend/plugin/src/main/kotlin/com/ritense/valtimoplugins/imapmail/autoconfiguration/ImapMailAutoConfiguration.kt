@@ -18,9 +18,10 @@ package com.ritense.valtimoplugins.imapmail.autoconfiguration
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.ritense.case.service.CaseDefinitionService
+import com.ritense.document.service.DocumentService
 import com.ritense.plugin.service.PluginService
 import com.ritense.processdocument.service.ProcessDefinitionCaseDefinitionService
-import com.ritense.processdocument.service.ProcessDocumentService
+import com.ritense.processdocument.service.ProcessDocumentAssociationService
 import com.ritense.processlink.repository.ValtimoPluginProcessLinkRepository
 import com.ritense.resource.service.TemporaryResourceStorageService
 import com.ritense.valtimo.contract.config.LiquibaseMasterChangeLogLocation
@@ -77,7 +78,8 @@ class ImapMailAutoConfiguration {
         repositoryService: RepositoryService,
         processPropertyService: ProcessPropertyService,
         processDefinitionCaseDefinitionService: ProcessDefinitionCaseDefinitionService,
-        processDocumentService: ProcessDocumentService,
+        documentService: DocumentService,
+        processDocumentAssociationService: ProcessDocumentAssociationService,
         caseDefinitionService: CaseDefinitionService,
     ): MailProcessStarter =
         MailProcessStarter(
@@ -85,7 +87,8 @@ class ImapMailAutoConfiguration {
             repositoryService,
             processPropertyService,
             processDefinitionCaseDefinitionService,
-            processDocumentService,
+            documentService,
+            processDocumentAssociationService,
             caseDefinitionService,
         )
 
