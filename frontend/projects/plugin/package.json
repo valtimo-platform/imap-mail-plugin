@@ -1,7 +1,7 @@
 {
   "name": "@valtimo-plugins/imap-mail-plugin",
   "license": "EUPL-1.2",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "scripts": {
     "build": "ng build @valtimo-plugins/imap-mail-plugin",
     "watch": "ng build @valtimo-plugins/imap-mail-plugin --watch"

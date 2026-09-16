@@ -2,10 +2,24 @@
 
 Overzicht van wijzigingen per versie van de IMAP mail plugin.
 
-## 0.0.4
+## 0.0.5
 
 - De procesvariabele 'attachments' is nu beschikbaar als lijst van objecten, met properties fileName, contentType, sizeInBytes en resourceId.
 - Default interval voor het pollen is nu 1 minuut.
+
+## 0.0.4
+
+Correctie, geen wijzigingen in instellingen of procesvariabelen:
+
+- Een proces met méér dan één startgebeurtenis werd op de verkeerde plek gestart. De plugin
+  startte het proces op zijn sleutel, waarna de procesmotor binnenkomt bij de startgebeurtenis
+  die hij als eerste beschouwt — en dat is de gewone startgebeurtenis (het startformulier),
+  niet de berichtstartgebeurtenis waaraan de `receive-mail`-koppeling hangt. De zaak ontstond
+  dan wel, maar de uitvoeringslisteners van de mailstartgebeurtenis liepen nooit, zodat er
+  niets van de e-mail op de zaak terechtkwam. De plugin correleert nu het startbericht van
+  precies het element waaraan de koppeling hangt.
+- Voor een proces met één startgebeurtenis verandert er niets: dat was en blijft de
+  gebeurtenis waar de zaak begint.
 
 ## 0.0.3
 
