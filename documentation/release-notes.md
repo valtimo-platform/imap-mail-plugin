@@ -2,6 +2,10 @@
 
 Overzicht van wijzigingen per versie van de IMAP mail plugin.
 
+## 0.0.6
+
+Ondersteuning voor Valtimo 13.48.0.
+
 ## 0.0.5
 
 - De procesvariabele 'attachments' is nu beschikbaar als lijst van objecten, met properties fileName, contentType, sizeInBytes en resourceId.
