@@ -23,3 +23,4 @@ export * from "./lib/plugins/imap-mail-plugin/imap-mail-plugin-module";
 export * from "./lib/plugins/imap-mail-plugin/imap-mail-plugin.specification";
 export * from "./lib/plugins/imap-mail-plugin/components/imap-mail-plugin-configuration/imap-mail-plugin-configuration.component";
 export * from "./lib/plugins/imap-mail-plugin/components/receive-mail-configuration/receive-mail-configuration.component";
+export * from "./lib/plugins/imap-mail-plugin/components/resume-on-mail-configuration/resume-on-mail-configuration.component";

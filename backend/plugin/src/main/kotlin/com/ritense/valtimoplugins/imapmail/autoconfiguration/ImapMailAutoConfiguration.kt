@@ -32,9 +32,12 @@ import com.ritense.valtimoplugins.imapmail.domain.ProcessedMail
 import com.ritense.valtimoplugins.imapmail.plugin.ImapMailPluginFactory
 import com.ritense.valtimoplugins.imapmail.repository.ProcessedMailRepository
 import com.ritense.valtimoplugins.imapmail.service.IncomingMailHandler
+import com.ritense.valtimoplugins.imapmail.service.MailFilterResolver
 import com.ritense.valtimoplugins.imapmail.service.MailMessageParser
 import com.ritense.valtimoplugins.imapmail.service.MailProcessStarter
 import com.ritense.valtimoplugins.imapmail.service.MailboxPollingService
+import com.ritense.valueresolver.ValueResolverService
+import org.operaton.bpm.engine.ProcessEngine
 import org.operaton.bpm.engine.RepositoryService
 import org.operaton.bpm.engine.RuntimeService
 import org.springframework.beans.factory.annotation.Value
@@ -72,6 +75,13 @@ class ImapMailAutoConfiguration {
         MailMessageParser(storageService)
 
     @Bean
+    @ConditionalOnMissingBean(MailFilterResolver::class)
+    fun mailFilterResolver(
+        valueResolverService: ValueResolverService,
+        processEngine: ProcessEngine,
+    ): MailFilterResolver = MailFilterResolver(valueResolverService, processEngine)
+
+    @Bean
     @ConditionalOnMissingBean(MailProcessStarter::class)
     fun mailProcessStarter(
         runtimeService: RuntimeService,
@@ -81,6 +91,7 @@ class ImapMailAutoConfiguration {
         documentService: DocumentService,
         processDocumentAssociationService: ProcessDocumentAssociationService,
         caseDefinitionService: CaseDefinitionService,
+        mailFilterResolver: MailFilterResolver,
     ): MailProcessStarter =
         MailProcessStarter(
             runtimeService,
@@ -90,6 +101,7 @@ class ImapMailAutoConfiguration {
             documentService,
             processDocumentAssociationService,
             caseDefinitionService,
+            mailFilterResolver,
         )
 
     @Bean

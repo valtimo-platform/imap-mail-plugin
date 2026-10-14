@@ -38,11 +38,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Drives the inbound side of the plugin: on a schedule, opens every mailbox that some BPMN
  * model is waiting on and feeds the mail it finds to [IncomingMailHandler].
  *
- * Which mailboxes those are is derived from the `receive-mail` process links rather than
- * from the plugin configurations. A configuration nobody links to is not polled at all,
- * which means adding a configuration for a mailbox you are not ready to process yet is
- * harmless, and removing the last link stops the polling without anyone having to remember
- * to delete credentials.
+ * Which mailboxes those are is derived from the `receive-mail` and `resume-on-mail` process
+ * links rather than from the plugin configurations. A configuration nobody links to is not
+ * polled at all, which means adding a configuration for a mailbox you are not ready to
+ * process yet is harmless, and removing the last link stops the polling without anyone
+ * having to remember to delete credentials.
  */
 open class MailboxPollingService(
     private val pluginProcessLinkRepository: ValtimoPluginProcessLinkRepository,
@@ -86,7 +86,8 @@ open class MailboxPollingService(
     }
 
     private fun pollAllConfigurations() {
-        val links = pluginProcessLinkRepository.findByPluginActionDefinitionKey(RECEIVE_MAIL_ACTION)
+        val links =
+            MAIL_ACTIONS.flatMap { pluginProcessLinkRepository.findByPluginActionDefinitionKey(it) }
 
         // A process link may name a plugin configuration indirectly, through a reference
         // resolved at execution time from process variables. That cannot work here: there is
@@ -95,16 +96,16 @@ open class MailboxPollingService(
         val (bound, unbound) = links.partition { it.pluginConfigurationId != null }
         unbound.forEach {
             logger.warn {
-                "Ignoring the receive-mail link on activity '${it.activityId}' of process definition " +
-                    "'${it.processDefinitionId}': it has no fixed plugin configuration, and a mailbox cannot be " +
-                    "resolved from process variables before the mail is read."
+                "Ignoring the ${it.pluginActionDefinitionKey} link on activity '${it.activityId}' of process " +
+                    "definition '${it.processDefinitionId}': it has no fixed plugin configuration, and a " +
+                    "mailbox cannot be resolved from process variables before the mail is read."
             }
         }
 
         val linksByConfiguration = bound.groupBy { requireNotNull(it.pluginConfigurationId) }
 
         if (linksByConfiguration.isEmpty()) {
-            logger.debug { "No '$RECEIVE_MAIL_ACTION' process links configured; nothing to poll" }
+            logger.debug { "No $MAIL_ACTIONS process links configured; nothing to poll" }
             return
         }
 
@@ -191,5 +192,9 @@ open class MailboxPollingService(
         private val logger = KotlinLogging.logger {}
 
         const val RECEIVE_MAIL_ACTION = "receive-mail"
+        const val RESUME_ON_MAIL_ACTION = "resume-on-mail"
+
+        /** Every action that makes the poller read a mailbox. */
+        val MAIL_ACTIONS = listOf(RECEIVE_MAIL_ACTION, RESUME_ON_MAIL_ACTION)
     }
 }

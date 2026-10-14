@@ -17,6 +17,7 @@
 package com.ritense.valtimoplugins.imapmail.domain
 
 import com.ritense.valtimoplugins.imapmail.BaseTest
+import com.ritense.valtimoplugins.imapmail.domain.ReceiveMailProperties.Field
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -86,6 +87,63 @@ class ReceiveMailPropertiesTest : BaseTest() {
         assertThat(ReceiveMailProperties(senderContains = "jan").matches(anonymous)).isFalse()
         assertThat(ReceiveMailProperties(subjectContains = "bezwaar").matches(anonymous)).isFalse()
         assertThat(ReceiveMailProperties().matches(anonymous)).isTrue()
+    }
+
+    @Test
+    fun `should match a referenced value only as a whole value`() {
+        // The safety of resume-on-mail: a case's own value must not pick up somebody else's mail.
+        val janCase = ReceiveMailProperties(senderContains = "an@example.com")
+
+        assertThat(janCase.matches(mail(), setOf(Field.SENDER))).isFalse()
+        assertThat(janCase.matches(mail())).isTrue()
+    }
+
+    @Test
+    fun `should not match a referenced address inside a longer domain`() {
+        val spoofed = mail().copy(sender = "jan@example.com.evil.nl")
+
+        assertThat(
+            ReceiveMailProperties(senderContains = "jan@example.com").matches(spoofed, setOf(Field.SENDER)),
+        ).isFalse()
+    }
+
+    @Test
+    fun `should match a referenced address case insensitively`() {
+        assertThat(
+            ReceiveMailProperties(senderContains = "JAN@Example.COM").matches(mail(), setOf(Field.SENDER)),
+        ).isTrue()
+    }
+
+    @Test
+    fun `should match a referenced case number as a whole value in the subject`() {
+        fun subject(subject: String) =
+            ReceiveMailProperties(subjectContains = "Z-1").matches(mail().copy(subject = subject), setOf(Field.SUBJECT))
+
+        assertThat(subject("Re: Z-1 aanvullende stukken")).isTrue()
+        assertThat(subject("Vraag over zaak Z-1.")).isTrue()
+        assertThat(subject("[Z-1] bezwaar")).isTrue()
+        assertThat(subject("Re: Z-12 aanvullende stukken")).isFalse()
+        assertThat(subject("Re: AZ-1 aanvullende stukken")).isFalse()
+        assertThat(subject("Re: Z-1-2 aanvullende stukken")).isFalse()
+        // A later, whole occurrence still counts after a partial one.
+        assertThat(subject("Z-12 en Z-1")).isTrue()
+    }
+
+    @Test
+    fun `should match a referenced recipient as a whole address`() {
+        val filter = ReceiveMailProperties(recipientContains = "balie@example.org")
+
+        assertThat(filter.matches(mail(), setOf(Field.RECIPIENT))).isTrue()
+        assertThat(
+            filter.matches(mail().copy(recipients = listOf("zbalie@example.org")), setOf(Field.RECIPIENT)),
+        ).isFalse()
+    }
+
+    @Test
+    fun `should keep substring matching for the fields that held no reference`() {
+        val filter = ReceiveMailProperties(senderContains = "jan@example.com", subjectContains = "bezwaar")
+
+        assertThat(filter.matches(mail(), setOf(Field.SENDER))).isTrue()
     }
 
     private fun mail() =

@@ -35,6 +35,7 @@ dependencies {
     compileOnly("com.ritense.valtimo:plugin-valtimo")
     compileOnly("com.ritense.valtimo:process-document")
     compileOnly("com.ritense.valtimo:temporary-resource-storage")
+    compileOnly("com.ritense.valtimo:value-resolver")
     compileOnly("org.operaton.bpm:operaton-engine:$operatonVersion")
 
     compileOnly("org.springframework.boot:spring-boot-autoconfigure")
@@ -65,6 +66,7 @@ dependencies {
     testImplementation("com.ritense.valtimo:process-document")
     testImplementation("com.ritense.valtimo:temporary-resource-storage")
     testImplementation("com.ritense.valtimo:test-utils-common")
+    testImplementation("com.ritense.valtimo:value-resolver")
 
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
     testImplementation("org.springframework.boot:spring-boot-starter-security")

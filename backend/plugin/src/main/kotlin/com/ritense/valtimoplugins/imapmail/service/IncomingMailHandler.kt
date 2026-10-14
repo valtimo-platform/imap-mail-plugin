@@ -19,10 +19,10 @@ package com.ritense.valtimoplugins.imapmail.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.ritense.authorization.annotation.RunWithoutAuthorization
 import com.ritense.plugin.domain.PluginProcessLink
-import com.ritense.valtimoplugins.imapmail.domain.FetchedMail
 import com.ritense.valtimoplugins.imapmail.domain.ProcessedMail
 import com.ritense.valtimoplugins.imapmail.domain.ReceiveMailProperties
 import com.ritense.valtimoplugins.imapmail.repository.ProcessedMailRepository
+import com.ritense.valtimoplugins.imapmail.service.MailboxPollingService.Companion.RESUME_ON_MAIL_ACTION
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.mail.Message
 import org.springframework.transaction.annotation.Propagation
@@ -78,17 +78,27 @@ open class IncomingMailHandler(
         )
 
         val mail = mailMessageParser.parse(message, identity)
-        val matching = processLinks.filter { matches(it, mail) }
+        val matching =
+            processLinks.mapNotNull { link ->
+                val filter = filterOf(link) ?: return@mapNotNull null
+                // A resume-on-mail filter may refer to process values, which only exist per
+                // waiting instance; the starter applies it there, not here.
+                if (link.pluginActionDefinitionKey == RESUME_ON_MAIL_ACTION || filter.matches(mail)) {
+                    link to filter
+                } else {
+                    null
+                }
+            }
 
         if (matching.isEmpty()) {
-            logger.debug { "Mail '$identity' from '${mail.sender}' matched no receive-mail process link" }
+            logger.debug { "Mail '$identity' from '${mail.sender}' matched no process link" }
             return false
         }
 
         // A started instance for any link is enough to call the mail handled. The links are
         // independent: one may be a message start event that always fires, another an
         // intermediate catch event that only fires when something is waiting for it.
-        val started = matching.map { mailProcessStarter.start(it, mail) }.any { it }
+        val started = matching.map { (link, filter) -> mailProcessStarter.start(link, mail, filter) }.any { it }
 
         if (started) {
             logger.info {
@@ -103,22 +113,26 @@ open class IncomingMailHandler(
         return started
     }
 
-    private fun matches(
-        processLink: PluginProcessLink,
-        mail: FetchedMail,
-    ): Boolean {
-        val properties = processLink.actionProperties ?: return true
-        val filter =
-            try {
-                objectMapper.treeToValue(properties, ReceiveMailProperties::class.java)
-            } catch (e: Exception) {
-                logger.warn(e) {
-                    "Could not read the filter of the receive-mail link on activity '${processLink.activityId}' of " +
-                        "process definition '${processLink.processDefinitionId}'; treating it as match-all"
-                }
-                return true
+    /**
+     * The link's filter, or `null` when the link should be skipped.
+     *
+     * An unreadable `receive-mail` filter is treated as match-all, so the mail still starts a
+     * case rather than being dropped. An unreadable `resume-on-mail` filter is not: there,
+     * match-all would mean resuming whichever instance happens to be waiting.
+     */
+    private fun filterOf(processLink: PluginProcessLink): ReceiveMailProperties? {
+        val properties = processLink.actionProperties ?: return ReceiveMailProperties()
+        return try {
+            objectMapper.treeToValue(properties, ReceiveMailProperties::class.java)
+        } catch (e: Exception) {
+            val resumesOnMail = processLink.pluginActionDefinitionKey == RESUME_ON_MAIL_ACTION
+            logger.warn(e) {
+                "Could not read the filter of the ${processLink.pluginActionDefinitionKey} link on activity " +
+                    "'${processLink.activityId}' of process definition '${processLink.processDefinitionId}'; " +
+                    if (resumesOnMail) "skipping it" else "treating it as match-all"
             }
-        return filter.matches(mail)
+            if (resumesOnMail) null else ReceiveMailProperties()
+        }
     }
 
     private fun claimKey(

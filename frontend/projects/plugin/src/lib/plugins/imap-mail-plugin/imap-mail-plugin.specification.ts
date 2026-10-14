@@ -17,6 +17,7 @@
 import {PluginSpecification} from "@valtimo/plugin";
 import {ImapMailPluginConfigurationComponent} from "./components/imap-mail-plugin-configuration/imap-mail-plugin-configuration.component";
 import {ReceiveMailConfigurationComponent} from "./components/receive-mail-configuration/receive-mail-configuration.component";
+import {ResumeOnMailConfigurationComponent} from "./components/resume-on-mail-configuration/resume-on-mail-configuration.component";
 import {IMAP_MAIL_PLUGIN_LOGO_BASE64} from "./assets";
 
 /** `pluginId` must equal the `key` of the `@Plugin` annotation on `ImapMailPlugin`. */
@@ -26,6 +27,7 @@ const imapMailPluginSpecification: PluginSpecification = {
   pluginLogoBase64: IMAP_MAIL_PLUGIN_LOGO_BASE64,
   functionConfigurationComponents: {
     "receive-mail": ReceiveMailConfigurationComponent,
+    "resume-on-mail": ResumeOnMailConfigurationComponent,
   },
   pluginTranslations: {
     nl: {
@@ -80,6 +82,10 @@ const imapMailPluginSpecification: PluginSpecification = {
       recipientContains: "Ontvanger bevat",
       recipientContainsTooltip:
         "Filtert op een deel van een adres in de Aan-regel. Een e-mail die alleen in de cc staat of via een alias binnenkomt die niet in de Aan-regel staat, past niet.",
+
+      "resume-on-mail": "Vervolgen bij e-mail",
+      resumeOnMailDescription:
+        "Vervolgt een wachtend dossier zodra er een e-mail binnenkomt die door het filter komt, ook als het geen antwoord is. Verwijs in het filter naar een waarde van het dossier, bijvoorbeeld pv:aanvragerEmail of doc:/zaaknummer: elk wachtend dossier wordt dan vergeleken met zijn eigen waarde. Een waarde uit het dossier moet als geheel in de e-mail staan, niet als deel van iets langers. Een filter met alleen vaste tekst vervolgt alleen iets als er precies één dossier wacht.",
     },
     en: {
       title: "IMAP mail",
@@ -133,6 +139,10 @@ const imapMailPluginSpecification: PluginSpecification = {
       recipientContains: "Recipient contains",
       recipientContainsTooltip:
         "Filters on part of a To address. A mail that only appears in Cc, or that arrives through an alias not in To, does not match.",
+
+      "resume-on-mail": "Resume on mail",
+      resumeOnMailDescription:
+        "Continues a waiting case as soon as an e-mail passing the filter arrives, whether it is a reply or not. Refer to a value of the case in the filter, such as pv:aanvragerEmail or doc:/zaaknummer: each waiting case is then compared with its own value. A value from the case must appear as a whole value, not as part of a longer one. A filter of plain text only resumes anything while exactly one case is waiting.",
     },
   },
 };

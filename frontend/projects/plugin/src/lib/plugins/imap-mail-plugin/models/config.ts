@@ -75,7 +75,10 @@ interface ImapMailPluginConfig extends PluginConfigurationData {
   debug?: boolean;
 }
 
-/** Action properties of the `receive-mail` process link: all optional, all AND-ed. */
+/**
+ * Action properties of the `receive-mail` and `resume-on-mail` process links: all optional,
+ * all AND-ed. On `resume-on-mail` a value may be a reference such as `pv:aanvragerEmail`.
+ */
 interface ReceiveMailConfig {
   senderContains?: string;
   subjectContains?: string;

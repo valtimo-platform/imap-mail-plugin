@@ -20,9 +20,14 @@ import {PluginTranslatePipeModule} from "@valtimo/plugin";
 import {FormModule, InputModule as ValtimoInputModule, SelectModule} from "@valtimo/components";
 import {ImapMailPluginConfigurationComponent} from "./components/imap-mail-plugin-configuration/imap-mail-plugin-configuration.component";
 import {ReceiveMailConfigurationComponent} from "./components/receive-mail-configuration/receive-mail-configuration.component";
+import {ResumeOnMailConfigurationComponent} from "./components/resume-on-mail-configuration/resume-on-mail-configuration.component";
 
 @NgModule({
-  declarations: [ImapMailPluginConfigurationComponent, ReceiveMailConfigurationComponent],
+  declarations: [
+    ImapMailPluginConfigurationComponent,
+    ReceiveMailConfigurationComponent,
+    ResumeOnMailConfigurationComponent,
+  ],
   imports: [
     CommonModule,
     PluginTranslatePipeModule,
@@ -30,6 +35,10 @@ import {ReceiveMailConfigurationComponent} from "./components/receive-mail-confi
     ValtimoInputModule,
     SelectModule,
   ],
-  exports: [ImapMailPluginConfigurationComponent, ReceiveMailConfigurationComponent],
+  exports: [
+    ImapMailPluginConfigurationComponent,
+    ReceiveMailConfigurationComponent,
+    ResumeOnMailConfigurationComponent,
+  ],
 })
 export class ImapMailPluginModule {}

@@ -37,9 +37,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
  * is the SMTP mail plugin's job (`smtp-mail`), or the Microsoft Graph mail plugin's, and a
  * mail-processing flow normally uses this plugin to receive and one of those to reply.
  *
- * Note that the single action here does no work of its own. `receive-mail` is a marker: it
- * records on a BPMN element that this mailbox should start (or resume) that process, and
- * `MailboxPollingService` finds those markers when it polls. There is nothing to invoke
+ * Note that the actions here do no work of their own. `receive-mail` and `resume-on-mail`
+ * are markers: they record on a BPMN element that this mailbox should start (or resume) that
+ * process, and `MailboxPollingService` finds those markers when it polls. There is nothing to invoke
  * synchronously, because inbound mail arrives on the mail server's schedule, not the
  * process engine's.
  */
@@ -128,6 +128,33 @@ open class ImapMailPlugin {
             "receive-mail marker reached for filter (sender='$senderContains', subject='$subjectContains', " +
                 "recipient='$recipientContains')"
         }
+    }
+
+    /**
+     * Marks a receive task or intermediate catch event as waiting for any mail from this
+     * mailbox that passes the filter - a reply or not.
+     *
+     * Unlike `receive-mail`, the filter values may refer to the waiting process: with
+     * `senderContains = pv:aanvragerEmail` each case waiting here is resumed only by mail
+     * from its own applicant. The poller resolves them per waiting process; see
+     * `MailFilterResolver`. A filter of plain text cannot tell waiting processes apart, so
+     * it only resumes anything while exactly one is waiting.
+     *
+     * The filter is stored as the link's action properties - `senderContains`,
+     * `subjectContains`, `recipientContains`, see `ReceiveMailProperties` - but deliberately
+     * not declared as parameters here. Valtimo runs this method itself when the process leaves
+     * the element, resolving every declared text parameter first, and `Re: aanvraag` would be
+     * read as a reference with prefix `Re`: the resolution throws, and the mail that resumed
+     * the process is rolled back on every poll. Undeclared, they are never resolved there.
+     */
+    @PluginAction(
+        key = "resume-on-mail",
+        title = "Resume on mail",
+        description = "Continue a waiting process when an e-mail passing its filter arrives in this mailbox",
+        activityTypes = [RECEIVE_TASK_END, INTERMEDIATE_CATCH_EVENT_END],
+    )
+    fun resumeOnMail() {
+        logger.debug { "resume-on-mail marker reached" }
     }
 
     /**
