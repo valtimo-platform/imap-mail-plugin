@@ -262,8 +262,53 @@ A mail carrying no thread headers, or none that match an open case, resumes noth
 counted as skipped — `start` returns `false`, which the handler treats as "matched but had
 nothing to act on", not as an error.
 
-The corollary: a receive task or catch event cannot be used to start something from an
-unrelated mail. That needs a message start event.
+The corollary: a `receive-mail` link on a receive task or catch event cannot be used to
+resume a case on an unrelated mail. That is what `resume-on-mail` is for.
+
+### Resume on mail
+
+A `resume-on-mail` link narrows the waiting executions with the filter instead of the thread.
+`IncomingMailHandler` does not apply its filter — a value like `pv:aanvragerEmail` compared
+as text would never match — but hands it to `MailProcessStarter.resumeMatching`, which:
+
+1. Refuses when the filter has no references and more than one execution is waiting — counted
+   over every version of the process, since Valtimo copies the link onto each new version and
+   each version's link would otherwise see only its own case. A plain-text filter is the same
+   for every case, so applying it would be the broadcast described above.
+2. Otherwise asks `MailFilterResolver` for each waiting execution's own filter and resumes
+   those it matches.
+
+`MailFilterResolver` treats a value as a reference only when its prefix is a registered value
+resolver (`ValueResolverService.getValueResolvers`), so `Re: aanvraag` stays text. It resolves
+inside an engine command with the waiting `ExecutionEntity` as the variable scope — the same
+scope `PluginService` passes when it executes an action, so `pv:` sees local variables too.
+The execution entity is only usable as a scope while a command context is open.
+
+A resolved reference matches as a whole value (`ReceiveMailProperties.Field`, carried by
+`ResolvedMailFilter`), not as a substring: substring matching is right for text typed for every
+mail, and wrong for a value that picks one case out of many — `an@x.nl` would take `jan@x.nl`'s
+mail. Characters that occur inside addresses and case numbers (`@ _ - +`, and a `.` followed by
+more value) count as part of the value. Plain-text fields keep substring matching.
+
+A reference that resolves to null or blank yields no filter at all rather than a blank field,
+because a blank field matches everything. Resolution errors are logged per execution and
+count as no match, so one broken case does not roll back the mail for the others.
+
+That last part depends on the command running in **its own transaction**
+(`commandExecutorTxRequiresNew`). A resolver that throws — `doc:` on a process without a case
+document does — marks the transaction it ran in for rollback even when the exception is
+caught. Joined to the mail's transaction, that undid the claim and every other resume, and the
+commit failed with `UnexpectedRollbackException` on every poll (`ResumeOnMailIT` reproduces
+it). The price: the resolving transaction cannot see what the mail's own has not committed, so
+an execution created earlier in the same handling is not found and does not match.
+
+Valtimo also invokes `resumeOnMail` itself when a process leaves the element
+(`ProcessLinkReceiveTaskEndListener`), resolving every text property the method declares
+first. That is why the method declares **none**: the filter lives in the stored action
+properties, which the poller reads, but declared, `Re: aanvraag` would be resolved as a
+reference with prefix `Re` and throw `No resolver factory found for value prefix Re` —
+inside the mail's transaction, so the mail would fail on every poll. `ResumeOnMailIT` saves
+real links so that listener runs.
 
 ## Authorization
 
@@ -329,8 +374,14 @@ of deliberately awkward fixtures — see [backend/app/README.md](../backend/app/
 - `recipientContains` matches the `To` addresses only. `Cc` is parsed into
   `mailCcRecipients` but never filtered on, so a mail that reaches the mailbox on `Cc` or
   through an alias absent from `To` is fetched and claimed but starts nothing.
-- A reply is correlated by thread headers alone. A sender who composes a fresh mail instead
-  of replying will not resume the case.
+- A `receive-mail` reply is correlated by thread headers alone. A sender who composes a
+  fresh mail instead of replying will not resume the case; use `resume-on-mail` for that.
+- `resume-on-mail` resolves its references in a separate transaction per waiting execution,
+  for every mail the link sees: N waiting cases times M mails per poll. Fine at case-load
+  scale; a link on an element where thousands of cases wait would make each poll slow.
+- `resume-on-mail` resumes every waiting case whose resolved filter matches, so
+  `senderContains = pv:aanvragerEmail` resumes every case of that applicant waiting at the
+  same element. Combine it with a value that is unique per case when that matters.
 - `digest:` identities collide for two genuinely identical mails in a mailbox that provides
   neither `Message-ID` nor UIDs.
 - Post-process failures leave the mailbox out of step with the claim table until the next

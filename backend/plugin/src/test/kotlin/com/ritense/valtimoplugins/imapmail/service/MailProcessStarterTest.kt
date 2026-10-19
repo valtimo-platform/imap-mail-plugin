@@ -26,6 +26,7 @@ import com.ritense.plugin.domain.PluginProcessLink
 import com.ritense.processdocument.domain.ProcessDefinitionCaseDefinition
 import com.ritense.processdocument.domain.ProcessDefinitionCaseDefinitionId
 import com.ritense.processdocument.domain.ProcessDefinitionId
+import com.ritense.processdocument.domain.ProcessDocumentInstance
 import com.ritense.processdocument.service.ProcessDefinitionCaseDefinitionService
 import com.ritense.processdocument.service.ProcessDocumentAssociationService
 import com.ritense.processlink.domain.ActivityTypeWithEventName
@@ -33,6 +34,9 @@ import com.ritense.valtimo.contract.case_.CaseDefinitionId
 import com.ritense.valtimo.service.ProcessPropertyService
 import com.ritense.valtimoplugins.imapmail.BaseTest
 import com.ritense.valtimoplugins.imapmail.domain.FetchedMail
+import com.ritense.valtimoplugins.imapmail.domain.ReceiveMailProperties
+import com.ritense.valtimoplugins.imapmail.domain.ResolvedMailFilter
+import com.ritense.valtimoplugins.imapmail.service.MailboxPollingService.Companion.RESUME_ON_MAIL_ACTION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -46,6 +50,7 @@ import org.mockito.kotlin.whenever
 import org.operaton.bpm.engine.RepositoryService
 import org.operaton.bpm.engine.RuntimeService
 import org.operaton.bpm.engine.repository.ProcessDefinition
+import org.operaton.bpm.engine.repository.ProcessDefinitionQuery
 import org.operaton.bpm.engine.runtime.Execution
 import org.operaton.bpm.engine.runtime.ExecutionQuery
 import org.operaton.bpm.engine.runtime.MessageCorrelationBuilder
@@ -76,6 +81,7 @@ class MailProcessStarterTest : BaseTest() {
     private lateinit var documentService: DocumentService
     private lateinit var processDocumentAssociationService: ProcessDocumentAssociationService
     private lateinit var caseDefinitionService: CaseDefinitionService
+    private lateinit var mailFilterResolver: MailFilterResolver
     private lateinit var starter: MailProcessStarter
 
     @BeforeEach
@@ -88,10 +94,15 @@ class MailProcessStarterTest : BaseTest() {
         documentService = mock()
         processDocumentAssociationService = mock()
         caseDefinitionService = mock()
+        mailFilterResolver = mock()
 
         whenever(runtimeService.createExecutionQuery()).thenReturn(executionQuery)
         whenever(executionQuery.processDefinitionId(any())).thenReturn(executionQuery)
         whenever(executionQuery.activityId(any())).thenReturn(executionQuery)
+        whenever(executionQuery.processDefinitionKey(any())).thenReturn(executionQuery)
+        val processDefinition = mock<ProcessDefinition>()
+        whenever(processDefinition.key).thenReturn("mail-intake-process")
+        whenever(repositoryService.getProcessDefinition("mail-intake-process:1:abc")).thenReturn(processDefinition)
 
         starter =
             MailProcessStarter(
@@ -102,6 +113,7 @@ class MailProcessStarterTest : BaseTest() {
                 documentService,
                 processDocumentAssociationService,
                 caseDefinitionService,
+                mailFilterResolver,
             )
     }
 
@@ -119,9 +131,9 @@ class MailProcessStarterTest : BaseTest() {
         val link = messageStartEvent()
         val documentId = JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555"))
         givenACaseCanBeStartedFor(link, documentId)
-        val correlation = givenStartMessageCorrelates("IncomingMail", "process-instance-1")
+        val correlation = givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
 
-        val started = starter.start(link, reply(references = emptyList()))
+        val started = starter.start(link, reply(references = emptyList()), ReceiveMailProperties())
 
         assertThat(started).isTrue()
         verify(correlation).processDefinitionId("Verwerk_email_handmatig:1:abc")
@@ -130,7 +142,7 @@ class MailProcessStarterTest : BaseTest() {
         verify(correlation).processInstanceBusinessKey(documentId.toString())
         verify(correlation).correlateStartMessage()
         verify(processDocumentAssociationService).createProcessDocumentInstance(
-            eq("process-instance-1"),
+            eq(PROCESS_INSTANCE_ID),
             eq(UUID.fromString("11111111-2222-3333-4444-555555555555")),
             eq("Verwerk email handmatig"),
         )
@@ -143,12 +155,78 @@ class MailProcessStarterTest : BaseTest() {
             link,
             JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555")),
         )
-        val correlation = givenStartMessageCorrelates("IncomingMail", "process-instance-1")
+        val correlation = givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
         val mail = reply(references = emptyList())
 
-        starter.start(link, mail)
+        starter.start(link, mail, ReceiveMailProperties())
 
         verify(correlation).setVariables(mail.toProcessVariables())
+    }
+
+    @Test
+    fun `should leave an association Valtimo already made at the start event alone`() {
+        // Valtimo's start event listener associates the instance itself, possibly with another
+        // document (a building block's). Creating one regardless throws on that.
+        val link = messageStartEvent()
+        givenACaseCanBeStartedFor(
+            link,
+            JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555")),
+        )
+        givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
+        doReturn(Optional.of(mock<ProcessDocumentInstance>()))
+            .whenever(processDocumentAssociationService)
+            .findProcessDocumentInstance(any())
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isTrue()
+        verify(processDocumentAssociationService, never()).createProcessDocumentInstance(any(), any(), any())
+    }
+
+    @Test
+    fun `should skip a case process that may not initialise a document instead of failing`() {
+        // Failing would roll back the claim, so every later poll would fail on this mail again -
+        // for a setting that does not change.
+        val link = messageStartEvent()
+        givenACaseCanBeStartedFor(
+            link,
+            JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555")),
+            canInitializeDocument = false,
+        )
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isFalse()
+        verify(documentService, never()).createDocument(any())
+        verify(runtimeService, never()).createMessageCorrelation(any())
+    }
+
+    @Test
+    fun `should skip a process that is linked to no case definition`() {
+        // An earlier version of a case process, detached when a newer one was deployed.
+        val link = messageStartEvent()
+        whenever(processPropertyService.isSystemProcessById(link.processDefinitionId)).thenReturn(false)
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isFalse()
+        verify(documentService, never()).createDocument(any())
+    }
+
+    @Test
+    fun `should start the latest version of a system process`() {
+        val link = systemProcessStartEvent("mail-intake:2:def")
+        givenLatestVersionOf("mail-intake", "mail-intake:2:def")
+        val correlation = givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isTrue()
+        verify(correlation).processDefinitionId("mail-intake:2:def")
+        verify(correlation).correlateStartMessage()
+    }
+
+    @Test
+    fun `should not start an earlier version of a system process`() {
+        // Valtimo copies the link onto every new version and the old one keeps its own, so
+        // without this one mail would start an instance of every version ever deployed.
+        val link = systemProcessStartEvent("mail-intake:1:abc")
+        givenLatestVersionOf("mail-intake", "mail-intake:2:def")
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isFalse()
+        verify(runtimeService, never()).createMessageCorrelation(any())
     }
 
     @Test
@@ -157,7 +235,12 @@ class MailProcessStarterTest : BaseTest() {
         awaits("instance-a", "<original-a@example.com>")
         awaits("instance-b", "<original-b@example.com>")
 
-        val resumed = starter.start(receiveTask(), reply(references = listOf("<original-b@example.com>")))
+        val resumed =
+            starter.start(
+                receiveTask(),
+                reply(references = listOf("<original-b@example.com>")),
+                ReceiveMailProperties(),
+            )
 
         assertThat(resumed).isTrue()
         verify(runtimeService).signal(eq("execution-b"), any<Map<String, Any>>())
@@ -169,7 +252,12 @@ class MailProcessStarterTest : BaseTest() {
         waiting("execution-a" to "instance-a")
         awaits("instance-a", "<original-a@example.com>")
 
-        val resumed = starter.start(receiveTask(), reply(references = listOf("<somebody-else@example.com>")))
+        val resumed =
+            starter.start(
+                receiveTask(),
+                reply(references = listOf("<somebody-else@example.com>")),
+                ReceiveMailProperties(),
+            )
 
         assertThat(resumed).isFalse()
         verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
@@ -183,7 +271,7 @@ class MailProcessStarterTest : BaseTest() {
         awaits("instance-a", "<original-a@example.com>")
         awaits("instance-b", "<original-b@example.com>")
 
-        val resumed = starter.start(receiveTask(), reply(references = emptyList()))
+        val resumed = starter.start(receiveTask(), reply(references = emptyList()), ReceiveMailProperties())
 
         assertThat(resumed).isFalse()
         verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
@@ -200,6 +288,7 @@ class MailProcessStarterTest : BaseTest() {
             starter.start(
                 receiveTask(),
                 reply(references = listOf("<first@example.com>", "<second@example.com>")),
+                ReceiveMailProperties(),
             )
 
         assertThat(resumed).isTrue()
@@ -211,7 +300,12 @@ class MailProcessStarterTest : BaseTest() {
         waiting("execution-a" to "instance-a", "execution-b" to "instance-a")
         awaits("instance-a", "<original-a@example.com>")
 
-        val resumed = starter.start(receiveTask(), reply(references = listOf("<original-a@example.com>")))
+        val resumed =
+            starter.start(
+                receiveTask(),
+                reply(references = listOf("<original-a@example.com>")),
+                ReceiveMailProperties(),
+            )
 
         assertThat(resumed).isTrue()
         verify(runtimeService).signal(eq("execution-a"), any<Map<String, Any>>())
@@ -223,7 +317,7 @@ class MailProcessStarterTest : BaseTest() {
         waiting("execution-a" to "instance-a")
         awaits("instance-a", "<original-a@example.com>")
 
-        starter.start(receiveTask(), reply(references = listOf("<original-a@example.com>")))
+        starter.start(receiveTask(), reply(references = listOf("<original-a@example.com>")), ReceiveMailProperties())
 
         verify(runtimeService).signal(
             eq("execution-a"),
@@ -235,7 +329,146 @@ class MailProcessStarterTest : BaseTest() {
     fun `should report nothing resumed when no execution is waiting`() {
         waiting()
 
-        val resumed = starter.start(receiveTask(), reply(references = listOf("<original-a@example.com>")))
+        val resumed =
+            starter.start(
+                receiveTask(),
+                reply(references = listOf("<original-a@example.com>")),
+                ReceiveMailProperties(),
+            )
+
+        assertThat(resumed).isFalse()
+        verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
+    }
+
+    @Test
+    fun `should resume on mail only the case whose own filter the mail passes`() {
+        // The same link filter, resolved per case: each case waits for its own applicant.
+        waiting("execution-a" to "instance-a", "execution-b" to "instance-b")
+        val filter = ReceiveMailProperties(senderContains = "pv:aanvragerEmail")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(true)
+        whenever(mailFilterResolver.resolve(filter, "execution-a"))
+            .thenReturn(ResolvedMailFilter(ReceiveMailProperties(senderContains = "piet@example.com")))
+        whenever(mailFilterResolver.resolve(filter, "execution-b"))
+            .thenReturn(ResolvedMailFilter(ReceiveMailProperties(senderContains = "jan@example.com")))
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
+
+        assertThat(resumed).isTrue()
+        verify(runtimeService).signal(eq("execution-b"), any<Map<String, Any>>())
+        verify(runtimeService, never()).signal(eq("execution-a"), any<Map<String, Any>>())
+    }
+
+    @Test
+    fun `should resume on mail without looking at thread headers`() {
+        // The resume-on-mail counterpart of the reply correlation: a fresh mail is enough.
+        waiting("execution-a" to "instance-a")
+        val filter = ReceiveMailProperties(senderContains = "pv:aanvragerEmail")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(true)
+        whenever(mailFilterResolver.resolve(filter, "execution-a"))
+            .thenReturn(ResolvedMailFilter(ReceiveMailProperties(senderContains = "jan@example.com")))
+
+        val resumed = starter.start(resumeOnMail(), reply(references = listOf("<unrelated@example.com>")), filter)
+
+        assertThat(resumed).isTrue()
+        verify(runtimeService).signal(eq("execution-a"), any<Map<String, Any>>())
+        verify(runtimeService, never()).getVariable(any(), any())
+    }
+
+    @Test
+    fun `should resume on mail every case whose own filter the mail passes`() {
+        // Two open cases of the same applicant: the mail is theirs in both, so both continue.
+        // Resuming neither would lose it, since the mail is claimed either way.
+        waiting("execution-a" to "instance-a", "execution-b" to "instance-b")
+        val filter = ReceiveMailProperties(senderContains = "pv:aanvragerEmail")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(true)
+        whenever(mailFilterResolver.resolve(any(), any()))
+            .thenReturn(ResolvedMailFilter(ReceiveMailProperties(senderContains = "jan@example.com")))
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
+
+        assertThat(resumed).isTrue()
+        verify(runtimeService).signal(eq("execution-a"), any<Map<String, Any>>())
+        verify(runtimeService).signal(eq("execution-b"), any<Map<String, Any>>())
+    }
+
+    @Test
+    fun `should not resume on mail a case whose filter value is missing`() {
+        // The resolver returns null when a reference has no value; that must not mean match-all.
+        waiting("execution-a" to "instance-a")
+        val filter = ReceiveMailProperties(senderContains = "pv:aanvragerEmail")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(true)
+        whenever(mailFilterResolver.resolve(filter, "execution-a")).thenReturn(null)
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
+
+        assertThat(resumed).isFalse()
+        verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
+    }
+
+    @Test
+    fun `should not resume on mail a case whose filter cannot be resolved`() {
+        waiting("execution-a" to "instance-a")
+        val filter = ReceiveMailProperties(subjectContains = "doc:/zaaknummer")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(true)
+        whenever(mailFilterResolver.resolve(filter, "execution-a")).thenThrow(IllegalStateException("no document"))
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
+
+        assertThat(resumed).isFalse()
+        verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
+    }
+
+    @Test
+    fun `should not resume on mail any case when a plain filter cannot tell several apart`() {
+        // A plain-text filter is the same for every case; resuming all of them is the broadcast.
+        waiting("execution-a" to "instance-a", "execution-b" to "instance-b")
+        val filter = ReceiveMailProperties(senderContains = "jan@example.com")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(false)
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
+
+        assertThat(resumed).isFalse()
+        verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
+        verify(mailFilterResolver, never()).resolve(any(), any())
+    }
+
+    @Test
+    fun `should resume on mail the one waiting process with a plain filter`() {
+        waiting("execution-a" to "instance-a")
+        val filter = ReceiveMailProperties(senderContains = "jan@example.com")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(false)
+        whenever(mailFilterResolver.resolve(filter, "execution-a")).thenReturn(ResolvedMailFilter(filter))
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
+
+        assertThat(resumed).isTrue()
+        verify(runtimeService).signal(eq("execution-a"), any<Map<String, Any>>())
+    }
+
+    @Test
+    fun `should not resume on mail with a plain filter when another version of the process also waits`() {
+        // One case on this version, one on an older one with a copy of the link: each link
+        // would see only its own case and resume it.
+        waiting("execution-a" to "instance-a")
+        whenever(executionQuery.count()).thenReturn(2)
+        val filter = ReceiveMailProperties(senderContains = "jan@example.com")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(false)
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
+
+        assertThat(resumed).isFalse()
+        verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
+        verify(executionQuery).processDefinitionKey("mail-intake-process")
+    }
+
+    @Test
+    fun `should not resume on mail the one waiting process when the plain filter does not match`() {
+        waiting("execution-a" to "instance-a")
+        val filter = ReceiveMailProperties(senderContains = "piet@example.com")
+        whenever(mailFilterResolver.hasReferences(filter)).thenReturn(false)
+        whenever(mailFilterResolver.resolve(filter, "execution-a")).thenReturn(ResolvedMailFilter(filter))
+
+        val resumed = starter.start(resumeOnMail(), reply(references = emptyList()), filter)
 
         assertThat(resumed).isFalse()
         verify(runtimeService, never()).signal(any(), any<Map<String, Any>>())
@@ -252,6 +485,7 @@ class MailProcessStarterTest : BaseTest() {
                 }
             }
         whenever(executionQuery.list()).thenReturn(parked)
+        whenever(executionQuery.count()).thenReturn(parked.size.toLong())
     }
 
     /** Records which mail the case behind [processInstanceId] is waiting for a reply to. */
@@ -270,6 +504,30 @@ class MailProcessStarterTest : BaseTest() {
             whenever(it.processDefinitionId).thenReturn("Verwerk_email_handmatig:1:abc")
         }
 
+    private fun systemProcessStartEvent(processDefinitionId: String): PluginProcessLink =
+        mock<PluginProcessLink>().also {
+            whenever(it.activityType).thenReturn(ActivityTypeWithEventName.MESSAGE_START_EVENT_START)
+            whenever(it.activityId).thenReturn("Event_0beitek")
+            whenever(it.processDefinitionId).thenReturn(processDefinitionId)
+            whenever(processPropertyService.isSystemProcessById(processDefinitionId)).thenReturn(true)
+        }
+
+    private fun givenLatestVersionOf(
+        key: String,
+        latestProcessDefinitionId: String,
+    ) {
+        val linked = mock<ProcessDefinition>()
+        whenever(linked.key).thenReturn(key)
+        val latest = mock<ProcessDefinition>()
+        whenever(latest.id).thenReturn(latestProcessDefinitionId)
+        val query = mock<ProcessDefinitionQuery>()
+        whenever(query.processDefinitionKey(key)).thenReturn(query)
+        whenever(query.latestVersion()).thenReturn(query)
+        whenever(query.list()).thenReturn(listOf(latest))
+        whenever(repositoryService.getProcessDefinition(any())).thenReturn(linked)
+        whenever(repositoryService.createProcessDefinitionQuery()).thenReturn(query)
+    }
+
     /**
      * Everything between "this link points at a message start event" and "a case may be created
      * for it": the process is not a system process, it belongs to the active version of a case
@@ -278,6 +536,7 @@ class MailProcessStarterTest : BaseTest() {
     private fun givenACaseCanBeStartedFor(
         link: PluginProcessLink,
         documentId: JsonSchemaDocumentId,
+        canInitializeDocument: Boolean = true,
     ) {
         // Real objects rather than mocks: these are plain JPA entities whose `val`s Mockito
         // cannot stub, and building them is no more code than stubbing them would be.
@@ -288,7 +547,7 @@ class MailProcessStarterTest : BaseTest() {
                     ProcessDefinitionId(link.processDefinitionId),
                     caseDefinitionId,
                 ),
-                canInitializeDocument = true,
+                canInitializeDocument = canInitializeDocument,
             )
         val caseDefinition =
             CaseDefinition(
@@ -308,7 +567,7 @@ class MailProcessStarterTest : BaseTest() {
         whenever(processDefinition.name).thenReturn("Verwerk email handmatig")
 
         whenever(processPropertyService.isSystemProcessById(link.processDefinitionId)).thenReturn(false)
-        whenever(processDefinitionCaseDefinitionService.findByProcessDefinitionId(any()))
+        whenever(processDefinitionCaseDefinitionService.findByProcessDefinitionIdOrNull(any()))
             .thenReturn(processDefinitionCaseDefinition)
         whenever(caseDefinitionService.getActiveCaseDefinition("coworker")).thenReturn(caseDefinition)
         whenever(documentService.createDocument(any())).thenReturn(createResult)
@@ -348,6 +607,14 @@ class MailProcessStarterTest : BaseTest() {
             whenever(it.processDefinitionId).thenReturn("mail-intake-process:1:abc")
         }
 
+    private fun resumeOnMail(): PluginProcessLink =
+        mock<PluginProcessLink>().also {
+            whenever(it.pluginActionDefinitionKey).thenReturn(RESUME_ON_MAIL_ACTION)
+            whenever(it.activityType).thenReturn(ActivityTypeWithEventName.RECEIVE_TASK_END)
+            whenever(it.activityId).thenReturn("await-mail")
+            whenever(it.processDefinitionId).thenReturn("mail-intake-process:1:abc")
+        }
+
     private fun reply(references: List<String>) =
         FetchedMail(
             identity = "msgid:<reply@example.com>",
@@ -366,4 +633,8 @@ class MailProcessStarterTest : BaseTest() {
             bodyHtmlResourceId = null,
             attachments = emptyList(),
         )
+
+    private companion object {
+        private const val PROCESS_INSTANCE_ID = "99999999-8888-7777-6666-555555555555"
+    }
 }

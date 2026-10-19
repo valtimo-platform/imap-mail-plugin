@@ -22,7 +22,9 @@ import com.ritense.plugin.domain.PluginProcessLink
 import com.ritense.valtimoplugins.imapmail.BaseTest
 import com.ritense.valtimoplugins.imapmail.domain.FetchedMail
 import com.ritense.valtimoplugins.imapmail.domain.ProcessedMail
+import com.ritense.valtimoplugins.imapmail.domain.ReceiveMailProperties
 import com.ritense.valtimoplugins.imapmail.repository.ProcessedMailRepository
+import com.ritense.valtimoplugins.imapmail.service.MailboxPollingService.Companion.RESUME_ON_MAIL_ACTION
 import jakarta.mail.Message
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -54,7 +56,7 @@ class IncomingMailHandlerTest : BaseTest() {
 
         whenever(processedMailRepository.existsById(any())).thenReturn(false)
         whenever(mailMessageParser.parse(any(), any())).thenReturn(mail())
-        whenever(mailProcessStarter.start(any(), any())).thenReturn(true)
+        whenever(mailProcessStarter.start(any(), any(), any())).thenReturn(true)
 
         handler = IncomingMailHandler(processedMailRepository, mailMessageParser, mailProcessStarter, objectMapper)
     }
@@ -66,7 +68,7 @@ class IncomingMailHandlerTest : BaseTest() {
         val handled = handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(link))
 
         assertThat(handled).isTrue()
-        verify(mailProcessStarter).start(eq(link), any())
+        verify(mailProcessStarter).start(eq(link), any(), any())
 
         val claim = argumentCaptor<ProcessedMail>()
         verify(processedMailRepository).saveAndFlush(claim.capture())
@@ -95,7 +97,7 @@ class IncomingMailHandlerTest : BaseTest() {
 
         assertThat(handled).isFalse()
         verify(mailMessageParser, never()).parse(any(), any())
-        verify(mailProcessStarter, never()).start(any(), any())
+        verify(mailProcessStarter, never()).start(any(), any(), any())
         verify(processedMailRepository, never()).saveAndFlush(any())
     }
 
@@ -106,7 +108,7 @@ class IncomingMailHandlerTest : BaseTest() {
         val handled = handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(link))
 
         assertThat(handled).isFalse()
-        verify(mailProcessStarter, never()).start(any(), any())
+        verify(mailProcessStarter, never()).start(any(), any(), any())
     }
 
     @Test
@@ -117,14 +119,14 @@ class IncomingMailHandlerTest : BaseTest() {
         val handled = handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(matching, other))
 
         assertThat(handled).isTrue()
-        verify(mailProcessStarter).start(eq(matching), any())
-        verify(mailProcessStarter, never()).start(eq(other), any())
+        verify(mailProcessStarter).start(eq(matching), any(), any())
+        verify(mailProcessStarter, never()).start(eq(other), any(), any())
     }
 
     @Test
     fun `should report not handled when every matching link had nothing to start`() {
         // An intermediate catch event with no waiting instance: matched, but nothing resumed.
-        whenever(mailProcessStarter.start(any(), any())).thenReturn(false)
+        whenever(mailProcessStarter.start(any(), any(), any())).thenReturn(false)
 
         val handled = handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(processLink()))
 
@@ -135,8 +137,8 @@ class IncomingMailHandlerTest : BaseTest() {
     fun `should report handled when at least one of several links started`() {
         val first = processLink()
         val second = processLink()
-        whenever(mailProcessStarter.start(eq(first), any())).thenReturn(false)
-        whenever(mailProcessStarter.start(eq(second), any())).thenReturn(true)
+        whenever(mailProcessStarter.start(eq(first), any(), any())).thenReturn(false)
+        whenever(mailProcessStarter.start(eq(second), any(), any())).thenReturn(true)
 
         assertThat(handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(first, second))).isTrue()
     }
@@ -146,6 +148,26 @@ class IncomingMailHandlerTest : BaseTest() {
         val link = processLink("""{"senderContains":{"unexpected":"object"}}""")
 
         assertThat(handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(link))).isTrue()
+    }
+
+    @Test
+    fun `should leave a resume-on-mail filter to the starter instead of matching it as text`() {
+        // `pv:aanvragerEmail` compared as text would never match; it is resolved per waiting case.
+        val link = processLink("""{"senderContains":"pv:aanvragerEmail"}""", RESUME_ON_MAIL_ACTION)
+
+        assertThat(handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(link))).isTrue()
+        verify(
+            mailProcessStarter,
+        ).start(eq(link), any(), eq(ReceiveMailProperties(senderContains = "pv:aanvragerEmail")))
+    }
+
+    @Test
+    fun `should skip a resume-on-mail link whose filter is unreadable`() {
+        // Match-all would resume whichever case happens to be waiting.
+        val link = processLink("""{"senderContains":{"unexpected":"object"}}""", RESUME_ON_MAIL_ACTION)
+
+        assertThat(handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(link))).isFalse()
+        verify(mailProcessStarter, never()).start(any(), any(), any())
     }
 
     @Test
@@ -166,14 +188,18 @@ class IncomingMailHandlerTest : BaseTest() {
         handler.handle(message, IDENTITY, CONFIGURATION_ID, listOf(processLink()))
 
         val started = argumentCaptor<FetchedMail>()
-        verify(mailProcessStarter).start(any(), started.capture())
+        verify(mailProcessStarter).start(any(), started.capture(), any())
         assertThat(started.firstValue.sender).isEqualTo("jan@example.com")
         assertThat(started.firstValue.subject).isEqualTo("Bezwaar")
         assertThat(started.firstValue.bodyResourceId).isEqualTo("resource-1")
     }
 
-    private fun processLink(actionProperties: String? = null): PluginProcessLink =
+    private fun processLink(
+        actionProperties: String? = null,
+        actionKey: String = MailboxPollingService.RECEIVE_MAIL_ACTION,
+    ): PluginProcessLink =
         mock<PluginProcessLink>().also { link ->
+            whenever(link.pluginActionDefinitionKey).thenReturn(actionKey)
             whenever(link.actionProperties)
                 .thenReturn(actionProperties?.let { objectMapper.readTree(it) as ObjectNode })
         }

@@ -2,6 +2,24 @@
 
 Overzicht van wijzigingen per versie van de IMAP mail plugin.
 
+## 0.0.7
+
+- Nieuwe actie **Vervolgen bij e-mail** (`resume-on-mail`) voor een receive task of
+  intermediate catch event. Die vervolgt een wachtend dossier met elke e-mail die door het
+  filter komt, ook als het geen antwoord is. De filtervelden mogen naar het dossier
+  verwijzen, zoals `pv:aanvragerEmail` of `doc:/zaaknummer`; de plugin vult die per wachtend
+  dossier in, zodat elk dossier alleen zijn eigen e-mail krijgt.
+- **E-mail ontvangen** (`receive-mail`) werkt ongewijzigd. Bestaande koppelingen hoeven niets
+  aan te passen.
+- Een systeemproces wordt bij een binnenkomende e-mail alleen nog in de nieuwste versie
+  gestart. Valtimo kopieert de koppeling naar elke nieuwe procesversie, waardoor één e-mail
+  eerder een instantie per ooit uitgerolde versie startte.
+- Een dossierproces met `canInitializeDocument` uit wordt overgeslagen met een waarschuwing,
+  in plaats van dat de e-mail elke ronde opnieuw faalt.
+- De koppeling tussen proces en dossier wordt alleen aangemaakt als Valtimo die bij de
+  startgebeurtenis nog niet heeft gelegd. Valtimo kan het proces daar al aan een ander document
+  koppelen (dat van een bouwblok), en dan faalde de start.
+
 ## 0.0.6
 
 Ondersteuning voor Valtimo 13.48.0.

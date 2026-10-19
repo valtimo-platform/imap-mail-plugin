@@ -118,6 +118,41 @@ All filters are case-insensitive and AND-ed. A link with no filters matches ever
 `Cc`, `Bcc` or through an alias that never appears in `To` will not match, even though the
 plugin did fetch it.
 
+## Action: resume on mail (`resume-on-mail`)
+
+A marker like `receive-mail`. Resumes the processes waiting at the element whose filter the
+mail passes, whether or not the mail is a reply. Thread headers play no part.
+
+Supported on a receive task and an intermediate catch event. The link must name a fixed
+plugin configuration.
+
+| Parameter           | Type   | Required | Description                                          |
+|---------------------|--------|----------|------------------------------------------------------|
+| `senderContains`    | string | No       | Substring of the sender address, or a reference.     |
+| `subjectContains`   | string | No       | Substring of the subject, or a reference.            |
+| `recipientContains` | string | No       | Substring of a `To` address, or a reference.         |
+
+Plain text matches as for `receive-mail`: case-insensitive substrings, AND-ed. In addition, a
+value may be a reference to the waiting process, such as `pv:aanvragerEmail` or
+`doc:/zaaknummer`: any prefix of an installed Valtimo value resolver. A reference is the whole
+field; `Aanvraag doc:/zaaknummer` is plain text. References are resolved
+separately for every waiting process, and a resolved value must appear as a **whole value**:
+not directly preceded by a letter, a digit or one of `@ _ - + .`, and not directly followed by
+a letter, a digit, one of `@ _ - +`, or a `.` that continues the value. So `an@x.nl` matches
+neither `jan@x.nl` nor `jan.an@x.nl`, `jan@x.nl` does not match `jan@x.nl.evil.nl`, and `Z-1`
+matches the subject `Re: Z-1` but not `Re: Z-12`.
+
+| Situation                                                          | Result                         |
+|--------------------------------------------------------------------|--------------------------------|
+| The filter contains a reference                                    | Each waiting process whose resolved filter matches is resumed. |
+| A reference resolves to nothing or to blank text for a process      | That process is not resumed.   |
+| A reference cannot be resolved (error)                              | That process is not resumed; a warning is logged. |
+| No reference, exactly one process waiting                           | Resumed if the filter matches. |
+| No reference, more than one process waiting                         | None are resumed; a warning is logged. |
+| Several processes' resolved filters match                           | All of them are resumed.       |
+| No process is waiting at the element                                | Nothing is resumed; the mail is still claimed and post-processed, not kept for later. |
+| The filter cannot be read                                           | The link is skipped.           |
+
 ## Process variables
 
 Set on the process instance the plugin starts or resumes.
@@ -125,7 +160,7 @@ Set on the process instance the plugin starts or resumes.
 | Variable                    | Type         | Description                                                     |
 |-----------------------------|--------------|-----------------------------------------------------------------|
 | `mailIdentity`              | string       | The key used for duplicate detection.                           |
-| `mailMessageId`             | string       | `Message-ID` header, when present. Also what reply correlation reads. |
+| `mailMessageId`             | string       | `Message-ID` header, when present. Also what reply correlation reads (`receive-mail` only). |
 | `mailSender`                | string       | Sender address.                                                 |
 | `mailSenderName`            | string       | Sender display name, when present.                              |
 | `mailRecipients`            | list<string> | `To` addresses.                                                 |

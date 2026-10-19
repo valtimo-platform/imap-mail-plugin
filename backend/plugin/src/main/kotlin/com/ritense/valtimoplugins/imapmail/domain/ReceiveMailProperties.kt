@@ -17,8 +17,13 @@
 package com.ritense.valtimoplugins.imapmail.domain
 
 /**
- * Action properties of the `receive-mail` process link: an optional filter deciding which
- * of the fetched messages this particular link should start a process for.
+ * Action properties of the `receive-mail` and `resume-on-mail` process links: an optional
+ * filter deciding which of the fetched messages this particular link should act on.
+ *
+ * On `resume-on-mail` the values may be references such as `pv:aanvragerEmail`; those are
+ * replaced per waiting process by [com.ritense.valtimoplugins.imapmail.service.MailFilterResolver]
+ * before [matches] runs. [matches] itself only ever sees plain text, but is told which fields
+ * held a reference: those match as a whole value rather than as a substring, see [Field].
  *
  * All filters are matched case-insensitively and all are AND-ed. A link with no filters at
  * all matches every message in the mailbox, which is the common single-process setup.
@@ -34,13 +39,69 @@ data class ReceiveMailProperties(
     val subjectContains: String? = null,
     val recipientContains: String? = null,
 ) {
-    fun matches(mail: FetchedMail): Boolean =
-        containedIn(senderContains, mail.sender) &&
-            containedIn(subjectContains, mail.subject) &&
-            (recipientContains.isNullOrBlank() || mail.recipients.any { containedIn(recipientContains, it) })
+    fun matches(
+        mail: FetchedMail,
+        wholeValues: Set<Field> = emptySet(),
+    ): Boolean =
+        found(senderContains, mail.sender, Field.SENDER in wholeValues) &&
+            found(subjectContains, mail.subject, Field.SUBJECT in wholeValues) &&
+            (
+                recipientContains.isNullOrBlank() ||
+                    mail.recipients.any { found(recipientContains, it, Field.RECIPIENT in wholeValues) }
+            )
 
-    private fun containedIn(
+    /**
+     * A filter field. A field in `wholeValues` held a reference to the waiting process, and
+     * its value must then appear as a whole value, not merely inside a longer one.
+     *
+     * Substring matching is right for text an administrator typed for every mail, and wrong
+     * for a value that picks one case out of many: `pv:aanvragerEmail` resolving to `a@x.nl`
+     * would otherwise also take mail from `ba@x.nl`, and case `Z-1` the mail about `Z-12` -
+     * one person's mail filed into somebody else's case.
+     */
+    enum class Field { SENDER, SUBJECT, RECIPIENT }
+
+    private fun found(
         needle: String?,
         haystack: String?,
-    ): Boolean = needle.isNullOrBlank() || haystack?.contains(needle, ignoreCase = true) == true
+        whole: Boolean,
+    ): Boolean {
+        if (needle.isNullOrBlank()) return true
+        if (haystack == null) return false
+        if (!whole) return haystack.contains(needle, ignoreCase = true)
+
+        var from = haystack.indexOf(needle, ignoreCase = true)
+        while (from >= 0) {
+            val end = from + needle.length
+            if (!joinsBefore(haystack, from) && !joinsAfter(haystack, end)) return true
+            from = haystack.indexOf(needle, from + 1, ignoreCase = true)
+        }
+        return false
+    }
+
+    /** Whether the character before [index] would make the match part of a longer value. */
+    private fun joinsBefore(
+        text: String,
+        index: Int,
+    ): Boolean = index > 0 && text[index - 1].let { it.isLetterOrDigit() || it in VALUE_CHARACTERS || it == '.' }
+
+    /**
+     * Whether the character at [index] continues the value. A `.` only does when more of a
+     * value follows it, so `jan@example.com.evil.nl` does not match `jan@example.com` but the
+     * sentence `zaak Z-1.` does match `Z-1`.
+     */
+    private fun joinsAfter(
+        text: String,
+        index: Int,
+    ): Boolean {
+        if (index >= text.length) return false
+        val next = text[index]
+        if (next.isLetterOrDigit() || next in VALUE_CHARACTERS) return true
+        return next == '.' && index + 1 < text.length && text[index + 1].isLetterOrDigit()
+    }
+
+    private companion object {
+        /** Characters that occur inside e-mail addresses and identifiers such as case numbers. */
+        private const val VALUE_CHARACTERS = "@_-+"
+    }
 }

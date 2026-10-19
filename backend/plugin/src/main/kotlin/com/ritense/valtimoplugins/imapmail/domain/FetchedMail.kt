@@ -45,7 +45,7 @@ data class FetchedMail(
      *
      * This is how a reply finds its way back to the one case that is waiting for it: the
      * case remembers the `Message-ID` of the mail that started it, and a reply carries that
-     * id in its `References` chain. See `MailProcessStarter.signalWaitingExecutions`.
+     * id in its `References` chain. See `MailProcessStarter.resumeReplies`.
      */
     val references: List<String>,
     /**

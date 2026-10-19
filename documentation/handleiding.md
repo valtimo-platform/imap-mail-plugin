@@ -114,6 +114,47 @@ Welke soort processtap je aanklikt, bepaalt wat de e-mail doet:
 | **Receive task** | Laat een dossier dat op deze stap wacht verdergaan, als de e-mail een antwoord is op een eerdere mail uit dát dossier. |
 | **Intermediate catch event** | Hetzelfde, voor een tussentijds antwoord. |
 
+### Een dossier vervolgen met elke e-mail, niet alleen met een antwoord
+
+**E-mail ontvangen** vervolgt een wachtend dossier alleen met een *antwoord* op een eerdere
+e-mail uit dat dossier. Wil je dat een dossier verdergaat zodra er een e-mail binnenkomt van
+bijvoorbeeld de aanvrager — ook als die een nieuwe e-mail stuurt, of antwoordt op een
+e-mail die het dossier zelf heeft verstuurd — kies dan op de receive task of het
+intermediate catch event de actie **Vervolgen bij e-mail**.
+
+Die actie heeft dezelfde drie filtervelden, maar je vult er een waarde **van het dossier** in
+in plaats van vaste tekst:
+
+| Veld | Voorbeeld | Betekenis |
+| --- | --- | --- |
+| **Afzender bevat** | `pv:aanvragerEmail` | Alleen e-mail van het adres dat in dít dossier als aanvrager staat. |
+| **Onderwerp bevat** | `doc:/zaaknummer` | Alleen e-mail met het zaaknummer van dít dossier in het onderwerp. |
+
+De plugin vult de waarde voor elk wachtend dossier apart in. Komt er een e-mail binnen van
+`jan@example.com`, dan gaat alleen het dossier verder waarin `jan@example.com` de aanvrager
+is.
+
+Een verwijzing vult het hele veld: `Aanvraag doc:/zaaknummer` wordt gewoon als tekst gelezen.
+Vul `doc:/zaaknummer` in; die past ook als het zaaknummer midden in het onderwerp staat.
+
+Een waarde uit het dossier moet als geheel in de e-mail staan, niet als stukje van iets
+langers: aanvrager `an@example.com` past niet op een e-mail van `jan@example.com`, en zaak
+`Z-1` past wel op het onderwerp `Re: Z-1` maar niet op `Re: Z-12`. Vaste tekst in een veld
+werkt zoals altijd: een stukje is genoeg.
+
+Let op:
+
+- Heeft een dossier de waarde niet (de aanvrager is nog niet ingevuld), dan gaat dat dossier
+  niet verder.
+- Heeft dezelfde aanvrager twee dossiers die op dezelfde stap wachten, dan gaan bij een
+  filter op alleen de afzender **beide** verder. Combineer in dat geval met het zaaknummer
+  in het onderwerp.
+- Vul je alleen vaste tekst in, dan kan de plugin de wachtende dossiers niet uit elkaar
+  houden. Wacht er dan meer dan één dossier, dan gaat er geen enkele verder.
+- Het dossier moet al op de stap wachten als de e-mail binnenkomt. Een e-mail die binnenkomt
+  terwijl er (nog) geen dossier wacht, wordt niet bewaard voor later: hij is verwerkt en
+  vervolgt niets. Dat geldt ook voor **E-mail ontvangen**.
+
 ### Filters
 
 Standaard pakt een koppeling élke e-mail uit de postbus op. Dat is precies wat je wilt als
@@ -149,6 +190,7 @@ Gebeurt er niets, loop dan deze lijst langs — het is vrijwel altijd een van de
 | De e-mail is wél gelezen, maar er is geen dossier | Het filter op de koppeling sluit deze e-mail uit | Controleer de drie filtervelden; laat ze leeg om alles op te pakken |
 | Niets werkt en de logging noemt inloggen of certificaten | Verkeerd wachtwoord, of een Microsoft 365-postbus zonder OAuth2 | Zie [Microsoft 365](#microsoft-365) |
 | Een antwoord maakt een nieuw dossier in plaats van het bestaande te vervolgen | Het antwoord is aan de koppeling van het *message start event* blijven hangen | Geef aanvragen en antwoorden verschillende ontvangeradressen en filter daarop |
+| Een wachtend dossier gaat niet verder met **Vervolgen bij e-mail** | De waarde in het filter is in dat dossier leeg, of het filter bevat alleen vaste tekst terwijl er meer dossiers wachten | Controleer of de procesvariabele of het dossierveld gevuld is; verwijs in het filter naar het dossier |
 
 Blijft het onduidelijk, zet dan **Debuglogging** tijdelijk aan en kijk mee in de logging.
 Vergeet niet het daarna weer uit te zetten.
