@@ -26,6 +26,7 @@ import com.ritense.plugin.domain.PluginProcessLink
 import com.ritense.processdocument.domain.ProcessDefinitionCaseDefinition
 import com.ritense.processdocument.domain.ProcessDefinitionCaseDefinitionId
 import com.ritense.processdocument.domain.ProcessDefinitionId
+import com.ritense.processdocument.domain.ProcessDocumentInstance
 import com.ritense.processdocument.service.ProcessDefinitionCaseDefinitionService
 import com.ritense.processdocument.service.ProcessDocumentAssociationService
 import com.ritense.processlink.domain.ActivityTypeWithEventName
@@ -49,6 +50,7 @@ import org.mockito.kotlin.whenever
 import org.operaton.bpm.engine.RepositoryService
 import org.operaton.bpm.engine.RuntimeService
 import org.operaton.bpm.engine.repository.ProcessDefinition
+import org.operaton.bpm.engine.repository.ProcessDefinitionQuery
 import org.operaton.bpm.engine.runtime.Execution
 import org.operaton.bpm.engine.runtime.ExecutionQuery
 import org.operaton.bpm.engine.runtime.MessageCorrelationBuilder
@@ -129,7 +131,7 @@ class MailProcessStarterTest : BaseTest() {
         val link = messageStartEvent()
         val documentId = JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555"))
         givenACaseCanBeStartedFor(link, documentId)
-        val correlation = givenStartMessageCorrelates("IncomingMail", "process-instance-1")
+        val correlation = givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
 
         val started = starter.start(link, reply(references = emptyList()), ReceiveMailProperties())
 
@@ -140,7 +142,7 @@ class MailProcessStarterTest : BaseTest() {
         verify(correlation).processInstanceBusinessKey(documentId.toString())
         verify(correlation).correlateStartMessage()
         verify(processDocumentAssociationService).createProcessDocumentInstance(
-            eq("process-instance-1"),
+            eq(PROCESS_INSTANCE_ID),
             eq(UUID.fromString("11111111-2222-3333-4444-555555555555")),
             eq("Verwerk email handmatig"),
         )
@@ -153,12 +155,78 @@ class MailProcessStarterTest : BaseTest() {
             link,
             JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555")),
         )
-        val correlation = givenStartMessageCorrelates("IncomingMail", "process-instance-1")
+        val correlation = givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
         val mail = reply(references = emptyList())
 
         starter.start(link, mail, ReceiveMailProperties())
 
         verify(correlation).setVariables(mail.toProcessVariables())
+    }
+
+    @Test
+    fun `should leave an association Valtimo already made at the start event alone`() {
+        // Valtimo's start event listener associates the instance itself, possibly with another
+        // document (a building block's). Creating one regardless throws on that.
+        val link = messageStartEvent()
+        givenACaseCanBeStartedFor(
+            link,
+            JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555")),
+        )
+        givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
+        doReturn(Optional.of(mock<ProcessDocumentInstance>()))
+            .whenever(processDocumentAssociationService)
+            .findProcessDocumentInstance(any())
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isTrue()
+        verify(processDocumentAssociationService, never()).createProcessDocumentInstance(any(), any(), any())
+    }
+
+    @Test
+    fun `should skip a case process that may not initialise a document instead of failing`() {
+        // Failing would roll back the claim, so every later poll would fail on this mail again -
+        // for a setting that does not change.
+        val link = messageStartEvent()
+        givenACaseCanBeStartedFor(
+            link,
+            JsonSchemaDocumentId.existingId(UUID.fromString("11111111-2222-3333-4444-555555555555")),
+            canInitializeDocument = false,
+        )
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isFalse()
+        verify(documentService, never()).createDocument(any())
+        verify(runtimeService, never()).createMessageCorrelation(any())
+    }
+
+    @Test
+    fun `should skip a process that is linked to no case definition`() {
+        // An earlier version of a case process, detached when a newer one was deployed.
+        val link = messageStartEvent()
+        whenever(processPropertyService.isSystemProcessById(link.processDefinitionId)).thenReturn(false)
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isFalse()
+        verify(documentService, never()).createDocument(any())
+    }
+
+    @Test
+    fun `should start the latest version of a system process`() {
+        val link = systemProcessStartEvent("mail-intake:2:def")
+        givenLatestVersionOf("mail-intake", "mail-intake:2:def")
+        val correlation = givenStartMessageCorrelates("IncomingMail", PROCESS_INSTANCE_ID)
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isTrue()
+        verify(correlation).processDefinitionId("mail-intake:2:def")
+        verify(correlation).correlateStartMessage()
+    }
+
+    @Test
+    fun `should not start an earlier version of a system process`() {
+        // Valtimo copies the link onto every new version and the old one keeps its own, so
+        // without this one mail would start an instance of every version ever deployed.
+        val link = systemProcessStartEvent("mail-intake:1:abc")
+        givenLatestVersionOf("mail-intake", "mail-intake:2:def")
+
+        assertThat(starter.start(link, reply(references = emptyList()), ReceiveMailProperties())).isFalse()
+        verify(runtimeService, never()).createMessageCorrelation(any())
     }
 
     @Test
@@ -436,6 +504,30 @@ class MailProcessStarterTest : BaseTest() {
             whenever(it.processDefinitionId).thenReturn("Verwerk_email_handmatig:1:abc")
         }
 
+    private fun systemProcessStartEvent(processDefinitionId: String): PluginProcessLink =
+        mock<PluginProcessLink>().also {
+            whenever(it.activityType).thenReturn(ActivityTypeWithEventName.MESSAGE_START_EVENT_START)
+            whenever(it.activityId).thenReturn("Event_0beitek")
+            whenever(it.processDefinitionId).thenReturn(processDefinitionId)
+            whenever(processPropertyService.isSystemProcessById(processDefinitionId)).thenReturn(true)
+        }
+
+    private fun givenLatestVersionOf(
+        key: String,
+        latestProcessDefinitionId: String,
+    ) {
+        val linked = mock<ProcessDefinition>()
+        whenever(linked.key).thenReturn(key)
+        val latest = mock<ProcessDefinition>()
+        whenever(latest.id).thenReturn(latestProcessDefinitionId)
+        val query = mock<ProcessDefinitionQuery>()
+        whenever(query.processDefinitionKey(key)).thenReturn(query)
+        whenever(query.latestVersion()).thenReturn(query)
+        whenever(query.list()).thenReturn(listOf(latest))
+        whenever(repositoryService.getProcessDefinition(any())).thenReturn(linked)
+        whenever(repositoryService.createProcessDefinitionQuery()).thenReturn(query)
+    }
+
     /**
      * Everything between "this link points at a message start event" and "a case may be created
      * for it": the process is not a system process, it belongs to the active version of a case
@@ -444,6 +536,7 @@ class MailProcessStarterTest : BaseTest() {
     private fun givenACaseCanBeStartedFor(
         link: PluginProcessLink,
         documentId: JsonSchemaDocumentId,
+        canInitializeDocument: Boolean = true,
     ) {
         // Real objects rather than mocks: these are plain JPA entities whose `val`s Mockito
         // cannot stub, and building them is no more code than stubbing them would be.
@@ -454,7 +547,7 @@ class MailProcessStarterTest : BaseTest() {
                     ProcessDefinitionId(link.processDefinitionId),
                     caseDefinitionId,
                 ),
-                canInitializeDocument = true,
+                canInitializeDocument = canInitializeDocument,
             )
         val caseDefinition =
             CaseDefinition(
@@ -474,7 +567,7 @@ class MailProcessStarterTest : BaseTest() {
         whenever(processDefinition.name).thenReturn("Verwerk email handmatig")
 
         whenever(processPropertyService.isSystemProcessById(link.processDefinitionId)).thenReturn(false)
-        whenever(processDefinitionCaseDefinitionService.findByProcessDefinitionId(any()))
+        whenever(processDefinitionCaseDefinitionService.findByProcessDefinitionIdOrNull(any()))
             .thenReturn(processDefinitionCaseDefinition)
         whenever(caseDefinitionService.getActiveCaseDefinition("coworker")).thenReturn(caseDefinition)
         whenever(documentService.createDocument(any())).thenReturn(createResult)
@@ -540,4 +633,8 @@ class MailProcessStarterTest : BaseTest() {
             bodyHtmlResourceId = null,
             attachments = emptyList(),
         )
+
+    private companion object {
+        private const val PROCESS_INSTANCE_ID = "99999999-8888-7777-6666-555555555555"
+    }
 }

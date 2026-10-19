@@ -11,6 +11,14 @@ Overzicht van wijzigingen per versie van de IMAP mail plugin.
   dossier in, zodat elk dossier alleen zijn eigen e-mail krijgt.
 - **E-mail ontvangen** (`receive-mail`) werkt ongewijzigd. Bestaande koppelingen hoeven niets
   aan te passen.
+- Een systeemproces wordt bij een binnenkomende e-mail alleen nog in de nieuwste versie
+  gestart. Valtimo kopieert de koppeling naar elke nieuwe procesversie, waardoor één e-mail
+  eerder een instantie per ooit uitgerolde versie startte.
+- Een dossierproces met `canInitializeDocument` uit wordt overgeslagen met een waarschuwing,
+  in plaats van dat de e-mail elke ronde opnieuw faalt.
+- De koppeling tussen proces en dossier wordt alleen aangemaakt als Valtimo die bij de
+  startgebeurtenis nog niet heeft gelegd. Valtimo kan het proces daar al aan een ander document
+  koppelen (dat van een bouwblok), en dan faalde de start.
 
 ## 0.0.6
 
